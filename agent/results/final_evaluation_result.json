@@ -1,0 +1,42 @@
+{
+    "total_questions": 2,
+    "correct_count": 1,
+    "accuracy": "50.00%",
+    "accuracy_score": 0.5,
+    "details": [
+        {
+            "id": 1,
+            "question": "What color is the cup?",
+            "options": {
+                "A": "Red",
+                "B": "Blue",
+                "C": "Green",
+                "D": "Black"
+            },
+            "ground_truth": "A",
+            "agent_prediction": "A",
+            "is_correct": true,
+            "raw_model_output": "The answer is A",
+            "used_memories": [
+                10
+            ]
+        },
+        {
+            "id": 2,
+            "question": "Where is the cat?",
+            "options": {
+                "A": "Kitchen",
+                "B": "Bedroom",
+                "C": "Garden",
+                "D": "Roof"
+            },
+            "ground_truth": "B",
+            "agent_prediction": "A",
+            "is_correct": false,
+            "raw_model_output": "The answer is A",
+            "used_memories": [
+                20
+            ]
+        }
+    ]
+}
