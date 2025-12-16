@@ -4,13 +4,8 @@
   "t_start": 330,
   "t_end": 360,
 
-  "summary": "The person walks to the table and picks up a red cup.",
-
-  "entities": [
-    "person",
-    "red cup",
-    "table"
-  ],
+  "summary": "A person walks to the table and picks up a red cup.",
+  "entities": ["person", "red cup", "table"],
 
   "events": [
     {"verb": "walk_to", "obj": "table", "detail": ""},
@@ -25,9 +20,5 @@
   "evidence_frames": [
     "data/keyframes/v001/chunk_012/img_00.jpg",
     "data/keyframes/v001/chunk_012/img_04.jpg"
-  ],
-
-  "confidence": 0.78,
-  "parse_error": false,
-  "raw_model_output": null
+  ]
 }
