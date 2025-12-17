@@ -1,0 +1,10 @@
+prompt = (
+  f"Image-1: {IMAGE_TOKEN}\n"
+  f"Image-2: {IMAGE_TOKEN}\n"
+  ...
+  f"Image-8: {IMAGE_TOKEN}\n"
+  "This chunk is from 00:30 to 01:00.\n"
+  "Previous chunk summary: ...\n"
+  "Return ONLY JSON with keys: chunk_id, t_start, t_end, summary, entities, events, state_update.\n"
+)
+response = pipe((prompt, images))  # images 是一个 list
