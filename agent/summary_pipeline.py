@@ -1,4 +1,3 @@
-# video_summary_pipeline.py
 from __future__ import annotations
 
 import json
@@ -6,8 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# Memory ingest: memory 同学提供的接口（内部怎么存/建索引由他封装）
+# 由 memory提供：负责存储（内部怎么落盘/建索引由他决定）
 from memory.interface import memory_ingest
+
+# 由 model提供：负责多模态推理（内部怎么 load 图、用什么 token、用什么引擎都封装）
+# from model.interface import model_interface  # model_interface(image_paths: list[str], prompt: str) -> str
 
 
 # =========================
@@ -49,75 +51,29 @@ def read_chunks(manifest_path: Path) -> List[ChunkSpec]:
 # =========================
 # 2) Prompt builder
 # =========================
-# NOTE: 这个 token 属于“模型后端协议”，不是 data.json 的一部分。
-# 现在先用占位符，等你们接 LMDeploy 再替换成真正 IMAGE_TOKEN。
-IMAGE_TOKEN = "<IMAGE_TOKEN>"
-
-
 def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
-    lines = [f"Image-{i+1}: {IMAGE_TOKEN}" for i in range(len(chunk.image_paths))]
-    lines.append(f"This chunk is from {seconds_to_mmss(chunk.t_start)} to {seconds_to_mmss(chunk.t_end)}.")
+    """
+    注意：这里不再放 IMAGE_TOKEN 了，因为你们的 model_interface 已经封装了
+    “多图怎么喂模型”的实现。prompt 只写任务与约束。
+    """
+    lines = []
+    lines.append(f"Time range: {seconds_to_mmss(chunk.t_start)} to {seconds_to_mmss(chunk.t_end)}.")
     lines.append(f"Previous chunk summary: {prev_summary}")
-    lines.append("Return ONLY JSON with keys: chunk_id, t_start, t_end, summary, entities, events, state_update.")
-    lines.append('Where events is a list of objects like {"verb":"...","obj":"...","detail":""}.')
+    lines.append(
+        "Task: summarize this chunk using the provided images in chronological order."
+    )
+    lines.append(
+        "Return ONLY valid JSON with keys: chunk_id, t_start, t_end, summary, entities, events, state_update."
+    )
+    lines.append(
+        'Where events is a list of objects like {"verb":"...","obj":"...","detail":""}.'
+    )
     lines.append("Return ONLY JSON. No extra text.")
     return "\n".join(lines)
 
-'''
-prompt = (
-  f"Image-1: {IMAGE_TOKEN}\n"
-  f"Image-2: {IMAGE_TOKEN}\n"
-  ...
-  f"Image-8: {IMAGE_TOKEN}\n"
-  "This chunk is from 00:30 to 01:00.\n"
-  "Previous chunk summary: ...\n"
-  "Return ONLY JSON with keys: chunk_id, t_start, t_end, summary, entities, events, state_update.\n"
-)
-response = pipe((prompt, images))  # images 是一个 list
-'''
-
 
 # =========================
-# 3) Model I/O (stub now)
-# =========================
-def load_images_stub(image_paths: List[str]) -> List[Any]:
-    """
-    TODO: Replace with real image loading for your chosen backend.
-
-    LMDeploy example:
-      from lmdeploy.vl import load_image
-      return [load_image(p) for p in image_paths]
-
-    HF example:
-      from PIL import Image
-      return [Image.open(p).convert("RGB") for p in image_paths]
-    """
-    # stub: keep paths as placeholders
-    return list(image_paths)
-
-
-def model_infer_stub(prompt: str, images: List[Any]) -> str:
-    """
-    TODO: Replace with real InternVL inference.
-
-    LMDeploy example:
-      resp = pipe((prompt, images))
-      return resp.text
-    """
-    dummy = {
-        "chunk_id": -1,
-        "t_start": -1,
-        "t_end": -1,
-        "summary": "STUB: replace model_infer_stub() with real InternVL inference.",
-        "entities": [],
-        "events": [],
-        "state_update": {}
-    }
-    return json.dumps(dummy, ensure_ascii=False)
-
-
-# =========================
-# 4) Parse & normalize to ChunkMemory
+# 3) Parse & normalize to ChunkMemory
 # =========================
 def extract_outer_json(text: str) -> Optional[str]:
     s = text.strip()
@@ -141,7 +97,7 @@ def normalize_record(raw_text: str, chunk: ChunkSpec, evidence_per_chunk: int = 
         except Exception:
             rec = {"parse_error": True, "raw_model_output": raw_text}
 
-    # enforce truth from data.json
+    # enforce truth from data.json (agent-controlled)
     rec["video_id"] = chunk.video_id
     rec["chunk_id"] = chunk.chunk_id
     rec["t_start"] = chunk.t_start
@@ -159,7 +115,7 @@ def normalize_record(raw_text: str, chunk: ChunkSpec, evidence_per_chunk: int = 
 
 
 # =========================
-# 5) Pipeline (ingest)
+# 4) Pipeline (ingest)
 # =========================
 def run_video_summary_pipeline(
     manifest_path: Path,
@@ -173,15 +129,15 @@ def run_video_summary_pipeline(
     for chunk in chunks:
         prompt = build_prompt(chunk, prev_summary=(prev_summary if use_prev_summary else ""))
 
-        images = load_images_stub(chunk.image_paths)
-        raw_text = model_infer_stub(prompt=prompt, images=images)
+        # Model teammate interface: (image_paths, prompt) -> raw_text
+        raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt)
 
         record = normalize_record(raw_text, chunk, evidence_per_chunk=evidence_per_chunk)
 
-        # Hand off to memory module (store/index inside memory module)
+        # hand off to memory module
         memory_ingest(record)
 
-        # Update for next chunk
+        # update prev_summary for next chunk
         if use_prev_summary and record.get("summary", "").strip():
             prev_summary = record["summary"].strip()
 
