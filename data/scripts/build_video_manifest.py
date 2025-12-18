@@ -1,5 +1,5 @@
 import argparse
-from scripts.video_slicer import slice_video
+from data.scripts.video_slicer import slice_video
 
 def main():
     ap = argparse.ArgumentParser()

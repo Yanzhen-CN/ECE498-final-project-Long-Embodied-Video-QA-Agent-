@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from data.scripts.build_video_manifest import slice_video          # returns (manifest_path, manifest_json)
+from data.video_interface import slice_video          # returns (manifest_path, manifest_json)
 from memory.memory_interface import memory_ingest                   # memory_ingest(record: dict) -> None
 from model.model_interface import model_interface                  # ✅ 你们队友提供的：model_interface(image_paths, prompt)->str
 

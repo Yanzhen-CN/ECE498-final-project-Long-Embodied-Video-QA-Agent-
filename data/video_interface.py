@@ -8,6 +8,8 @@ import cv2
 
 def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+    
+def video_upload() -> None:
 
 
 def slice_video(
