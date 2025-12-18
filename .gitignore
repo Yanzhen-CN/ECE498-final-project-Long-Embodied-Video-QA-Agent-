@@ -5,3 +5,4 @@ data/videos/
 *.mkv
 __pycache__/
 *.pyc
+*.jpg
