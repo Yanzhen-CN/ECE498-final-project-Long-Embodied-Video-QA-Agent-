@@ -1,0 +1,11 @@
+{
+  "chunk_id": "string",
+  "time_range": {"start_sec": "number", "end_sec": "number"},
+  "summary": "string",
+  "actions": ["string"],
+  "objects": ["string"],
+  "people": ["string"],
+  "locations": ["string"],
+  "events": [{"t": "number", "desc": "string"}],
+  "uncertainty": ["string"]
+}
