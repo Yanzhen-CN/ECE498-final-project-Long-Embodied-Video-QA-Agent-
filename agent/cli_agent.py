@@ -28,11 +28,14 @@ Terminal CLI agent:
 
 from __future__ import annotations
 
-import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Optional, Tuple
+
+# ✅ Real pipeline entry (you created this file)
+# e.g., pipeline/video_summary_pipeline.py contains summarize_video_for_cli()
+from agent.video_summary_pipeline import summarize_video_for_cli
 
 
 # -----------------------------
@@ -44,26 +47,35 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # -----------------------------
-# Integration hooks (TODO)
+# Integration hooks
 # -----------------------------
 def summary_pipeline(video_path: str) -> str:
     """
-    TODO: Replace with your real summary pipeline.
-    Input: a local path to the uploaded video (mp4).
-    Output: a summary string (or structured summary serialized to string).
+    Real summary pipeline.
+    Input: local path to uploaded .mp4
+    Output: CLI-friendly summary string
     """
-    # Example placeholder:
-    return f"[PLACEHOLDER SUMMARY] Video='{Path(video_path).name}'. Replace summary_pipeline() with real one."
+    return summarize_video_for_cli(
+        video_path,
+        use_prev_summary=True,
+        evidence_per_chunk=2,
+    )
 
 
-def answer_question(summary: str, question: str) -> str:
+def answer_question(context: str, question: str) -> str:
     """
-    TODO: Replace with your real QA call.
-    Input: summary string + user's question.
-    Output: model response string.
+    QA hook.
+    For now, we use `context` (summary text) as input.
+    Later you can replace this with memory retrieval + model answer, e.g.:
+      - memory_query(video_id, question) -> evidence
+      - model_interface(evidence_images, prompt) -> answer
     """
-    # Example placeholder:
-    return f"[PLACEHOLDER ANSWER]\nSummary: {summary[:120]}...\nQuestion: {question}\n(Replace answer_question() with your model call.)"
+    # Placeholder behavior (kept simple & predictable):
+    return (
+        "[TODO] Replace answer_question() with your QA module.\n"
+        f"Question: {question}\n"
+        f"Context (summary, truncated): {context[:400]}..."
+    )
 
 
 # -----------------------------
@@ -77,7 +89,6 @@ def _safe_input(prompt: str) -> str:
     try:
         return input(prompt)
     except (EOFError, KeyboardInterrupt):
-        # Treat Ctrl-D / Ctrl-C as immediate exit
         return "-1"
 
 
@@ -86,9 +97,7 @@ def _is_mp4(path: Path) -> bool:
 
 
 def _dedup_name(dst_dir: Path, filename: str) -> Path:
-    """
-    If filename exists, append _1, _2, ... before suffix.
-    """
+    """If filename exists, append _1, _2, ... before suffix."""
     candidate = dst_dir / filename
     if not candidate.exists():
         return candidate
@@ -103,12 +112,12 @@ def _dedup_name(dst_dir: Path, filename: str) -> Path:
         i += 1
 
 
+# -----------------------------
+# Video store
+# -----------------------------
 @dataclass
 class VideoStore:
-    """
-    Simple local store: uploaded videos are copied into UPLOAD_DIR.
-    We track by basename.
-    """
+    """Simple local store: uploaded videos are copied into UPLOAD_DIR."""
     dir_path: Path
 
     def list_names(self) -> list[str]:
@@ -121,11 +130,8 @@ class VideoStore:
             return p
         return None
 
-    def upload_from_path(self, src_path: str) -> tuple[bool, str]:
-        """
-        Copy src video into upload dir.
-        Returns (success, message).
-        """
+    def upload_from_path(self, src_path: str) -> Tuple[bool, str]:
+        """Copy src video into upload dir. Returns (success, message)."""
         src = Path(src_path).expanduser().resolve()
         if not src.exists() or not src.is_file():
             return False, f"Upload failed: file not found: {src}"
@@ -186,7 +192,7 @@ def run_test_mode() -> None:
     print("Returning to main menu...")
 
 
-def run_qa_loop(summary: str) -> None:
+def run_qa_loop(context: str) -> None:
     while True:
         choice = qa_menu()
         if _is_exit(choice):
@@ -200,7 +206,7 @@ def run_qa_loop(summary: str) -> None:
             if _is_exit(q):
                 raise SystemExit(0)
 
-            resp = answer_question(summary, q)
+            resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
             print("--------------------------")
@@ -240,17 +246,16 @@ def run_list_and_select_video(store: VideoStore) -> None:
 
             print("\nRunning summary pipeline...")
             try:
-                summary = summary_pipeline(str(path))
+                context = summary_pipeline(str(path))
             except Exception as e:
                 print(f"Summary pipeline failed: {e}")
                 continue
 
             print("\nSummary ready. Entering QA...")
-            run_qa_loop(summary)
+            run_qa_loop(context)
             return
 
-        else:
-            print("Invalid option. Please choose 0/1/-1.")
+        print("Invalid option. Please choose 0/1/-1.")
 
 
 def run_free_mode(store: VideoStore) -> None:
@@ -264,8 +269,9 @@ def run_free_mode(store: VideoStore) -> None:
 
         if choice == "1":
             run_list_and_select_video(store)
+            continue
 
-        elif choice == "2":
+        if choice == "2":
             src = _safe_input("Enter video file path (.mp4) (0 back, -1 exit): ").strip()
             if _is_exit(src):
                 raise SystemExit(0)
@@ -274,10 +280,9 @@ def run_free_mode(store: VideoStore) -> None:
 
             ok, msg = store.upload_from_path(src)
             print(msg)
-            # Success or failure both return to free-mode menu per your spec
+            continue
 
-        else:
-            print("Invalid option. Please choose 0/1/2/-1.")
+        print("Invalid option. Please choose 0/1/2/-1.")
 
 
 def main() -> None:
@@ -290,10 +295,8 @@ def main() -> None:
 
         if choice == "1":
             run_test_mode()
-
         elif choice == "2":
             run_free_mode(store)
-
         else:
             print("Invalid option. Please choose 1/2/-1.")
 
