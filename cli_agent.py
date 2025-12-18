@@ -33,8 +33,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-# ✅ Real pipeline entry (you created this file)
-# e.g., pipeline/video_summary_pipeline.py contains summarize_video_for_cli()
 from agent.video_summary_pipeline import summarize_video_for_cli
 
 
@@ -42,7 +40,8 @@ from agent.video_summary_pipeline import summarize_video_for_cli
 # Configuration
 # -----------------------------
 APP_DIR = Path(__file__).resolve().parent
-UPLOAD_DIR = APP_DIR / "uploaded_videos"
+ROOT_DIR = APP_DIR
+UPLOAD_DIR = ROOT_DIR / "data" / "videos"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -66,11 +65,8 @@ def answer_question(context: str, question: str) -> str:
     """
     QA hook.
     For now, we use `context` (summary text) as input.
-    Later you can replace this with memory retrieval + model answer, e.g.:
-      - memory_query(video_id, question) -> evidence
-      - model_interface(evidence_images, prompt) -> answer
+    Replace this with your real QA module later.
     """
-    # Placeholder behavior (kept simple & predictable):
     return (
         "[TODO] Replace answer_question() with your QA module.\n"
         f"Question: {question}\n"
@@ -96,22 +92,6 @@ def _is_mp4(path: Path) -> bool:
     return path.suffix.lower() == ".mp4"
 
 
-def _dedup_name(dst_dir: Path, filename: str) -> Path:
-    """If filename exists, append _1, _2, ... before suffix."""
-    candidate = dst_dir / filename
-    if not candidate.exists():
-        return candidate
-
-    stem = Path(filename).stem
-    suffix = Path(filename).suffix
-    i = 1
-    while True:
-        candidate = dst_dir / f"{stem}_{i}{suffix}"
-        if not candidate.exists():
-            return candidate
-        i += 1
-
-
 # -----------------------------
 # Video store
 # -----------------------------
@@ -130,8 +110,27 @@ class VideoStore:
             return p
         return None
 
-    def upload_from_path(self, src_path: str) -> Tuple[bool, str]:
-        """Copy src video into upload dir. Returns (success, message)."""
+    def _dst_path(self, src: Path, dst_name: Optional[str]) -> Path:
+        """Decide destination path under upload dir (enforce .mp4)."""
+        if dst_name is not None and dst_name.strip():
+            name = Path(dst_name.strip()).name  # prevent passing a path
+            if not name.lower().endswith(".mp4"):
+                name += ".mp4"
+            return self.dir_path / name
+        return self.dir_path / src.name
+
+    def upload_from_path(
+        self,
+        src_path: str,
+        dst_name: Optional[str] = None,
+        *,
+        overwrite: bool = False,
+    ) -> Tuple[bool, str]:
+        """
+        Copy src video into upload dir.
+        - If overwrite=False and dst exists -> fail (caller can ask user).
+        - If overwrite=True -> overwrite existing file.
+        """
         src = Path(src_path).expanduser().resolve()
         if not src.exists() or not src.is_file():
             return False, f"Upload failed: file not found: {src}"
@@ -139,10 +138,15 @@ class VideoStore:
         if not _is_mp4(src):
             return False, f"Upload failed: only .mp4 is supported, got: {src.suffix}"
 
-        dst = _dedup_name(self.dir_path, src.name)
+        dst = self._dst_path(src, dst_name)
+        if dst.exists() and not overwrite:
+            return False, f"Upload blocked: '{dst.name}' already exists."
+
         try:
             print("Uploading... (copying file to local upload dir)")
             shutil.copy2(src, dst)
+            if overwrite:
+                return True, f"Upload success (overwritten): {dst.name}"
             return True, f"Upload success: {dst.name}"
         except Exception as e:
             return False, f"Upload failed: {e}"
@@ -244,14 +248,14 @@ def run_list_and_select_video(store: VideoStore) -> None:
                 print("Video not found. Please check the name and try again.")
                 continue
 
-            print("\nRunning summary pipeline...")
+            print("\nRunning summary pipeline (video slicing + model analysis + memory ingest)...")
             try:
                 context = summary_pipeline(str(path))
             except Exception as e:
                 print(f"Summary pipeline failed: {e}")
                 continue
 
-            print("\nSummary ready. Entering QA...")
+            print("\n[OK] Video loaded & analyzed. Entering QA...")
             run_qa_loop(context)
             return
 
@@ -278,7 +282,26 @@ def run_free_mode(store: VideoStore) -> None:
             if src == "0":
                 continue
 
-            ok, msg = store.upload_from_path(src)
+            new_name = _safe_input("Save as (Enter to keep original name) (0 back, -1 exit): ").strip()
+            if _is_exit(new_name):
+                raise SystemExit(0)
+            if new_name == "0":
+                continue
+            if new_name == "":
+                new_name = None
+
+            # Confirm overwrite if needed
+            src_p = Path(src).expanduser().resolve()
+            dst_p = store._dst_path(src_p, new_name)
+            if dst_p.exists():
+                ans = _safe_input(f"'{dst_p.name}' already exists. Overwrite? (y/N): ").strip().lower()
+                if ans != "y":
+                    print("Upload cancelled (no overwrite).")
+                    continue
+                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=True)
+            else:
+                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=False)
+
             print(msg)
             continue
 
