@@ -3,3 +3,5 @@ data/videos/
 *.mov
 *.avi
 *.mkv
+__pycache__/
+*.pyc

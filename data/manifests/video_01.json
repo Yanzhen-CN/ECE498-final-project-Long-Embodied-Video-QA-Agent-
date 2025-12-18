@@ -3,6 +3,7 @@
   "video_id": "video_01",
   "video_path": "data/videos/video_01.mp4",
   "fps": 17.404667004278526,
+  
   "duration_sec": 653.216,
   "chunk_seconds": 30,
   "keyframes_per_chunk": 8,
