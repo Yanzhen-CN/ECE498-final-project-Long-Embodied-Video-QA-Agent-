@@ -32,40 +32,45 @@ def _validate_chunk_memory(chunk: Dict) -> None:
 
 def _save_chunks(
     chunks: List[Dict],
-    memory_root: str = "memory/chunks",
-) -> Path:
-    """Append chunks to memory/chunks/{video_id}.jsonl"""
+    memory_root: str = "memory",
+) -> List[Path]:
+    """
+    Save each chunk into its own JSONL file under:
+    memory/{video_id}/{t_start}-{t_end}.jsonl
 
-    video_id = chunks[0]["video_id"]
+    File name does NOT include video_id, only time range.
+    Time is formatted as 4 digits (seconds): 0570-0600
+    """
+    out_paths: List[Path] = []
 
-    memory_dir = Path(memory_root)
-    memory_dir.mkdir(parents=True, exist_ok=True)
+    for c in chunks:
+        video_id = c["video_id"]
+        t_start = int(c["t_start"])
+        t_end = int(c["t_end"])
 
-    out_path = memory_dir / f"{video_id}.jsonl"
+        # 每个 video_id 一个子文件夹
+        video_dir = Path(memory_root) / video_id
+        video_dir.mkdir(parents=True, exist_ok=True)
 
-    with out_path.open("a", encoding="utf-8") as f:
-        for chunk in chunks:
-            f.write(json.dumps(chunk, ensure_ascii=False))
+        # 文件名：四位时间范围，不含 video_id
+        out_path = video_dir / f"{t_start:04d}-{t_end:04d}.jsonl"
+
+        # 一个文件只存一个 chunk（覆盖写）
+        with out_path.open("w", encoding="utf-8") as f:
+            f.write(json.dumps(c, ensure_ascii=False))
             f.write("\n")
 
-    return out_path
+        out_paths.append(out_path)
+
+    return out_paths
+
+
 
 
 # ==================================================
 # ⭐ Unified public interface
 # ==================================================
-def memory_ingest(record: Union[Dict, List[Dict]]) -> Dict:
-    """
-    Unified memory ingestion entry.
-
-    Args:
-        record: single ChunkMemory dict or list of ChunkMemory dicts
-
-    Returns:
-        metadata dict (for logging / API response)
-    """
-
-    # Normalize to list
+def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "memory") -> Dict:
     if isinstance(record, dict):
         chunks = [record]
     elif isinstance(record, list):
@@ -76,7 +81,6 @@ def memory_ingest(record: Union[Dict, List[Dict]]) -> Dict:
     if not chunks:
         raise ValueError("Empty memory record")
 
-    # Validate & consistency check
     video_id = chunks[0].get("video_id")
     if not video_id:
         raise ValueError("video_id missing")
@@ -86,12 +90,12 @@ def memory_ingest(record: Union[Dict, List[Dict]]) -> Dict:
         if chunk["video_id"] != video_id:
             raise ValueError("Mixed video_id in one ingest call")
 
-    # Save
-    out_path = _save_chunks(chunks)
+    out_paths = _save_chunks(chunks, memory_root=memory_root)
 
     return {
         "status": "ok",
         "video_id": video_id,
         "num_chunks": len(chunks),
-        "saved_to": str(out_path),
+        "saved_dir": str(Path(memory_root) / video_id),
+        "saved_to": [str(p) for p in out_paths],
     }
