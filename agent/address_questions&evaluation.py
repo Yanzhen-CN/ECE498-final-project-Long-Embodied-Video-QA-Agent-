@@ -181,7 +181,7 @@ def evaluate_video_qa(question_bank, retrieved_memories_map, model_inference_fn)
 # 在实际使用中，这里替换成 agent.model.chat(tokenizer, ..., question=prompt)
 def my_model_caller(prompt):
     # 这里为了演示，我随机返回一个答案，实际你要调用 InternVL
-    # return internvl_model.generate(prompt)
+    # return internvl_model.generate(pro    mpt)
     return "The answer is A" 
 
 # 2. 模拟加载数据 (对应你的输入 JSON)
