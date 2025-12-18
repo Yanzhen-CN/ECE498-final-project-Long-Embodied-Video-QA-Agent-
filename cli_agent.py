@@ -35,6 +35,9 @@ from typing import Optional, Tuple
 
 from agent.video_summary_pipeline import summarize_video_for_cli
 
+# NEW: preload model at agent startup
+from model.model_interface import init_model, is_model_loaded
+
 
 # -----------------------------
 # Configuration
@@ -43,6 +46,11 @@ APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR
 UPLOAD_DIR = ROOT_DIR / "data" / "videos"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+# Model preload behavior
+PRELOAD_MODEL_ON_START = True
+CACHE_ONLY = True  # True: only read model/hf_cache (offline/cache-only). Set False for first run to download.
+MODEL_NAME = "OpenGVLab/InternVL3_5-4B"
 
 
 # -----------------------------
@@ -58,6 +66,7 @@ def summary_pipeline(video_path: str) -> str:
         video_path,
         use_prev_summary=True,
         evidence_per_chunk=2,
+        local_files_only=CACHE_ONLY,   # NEW: force cache-only if desired
     )
 
 
@@ -90,6 +99,32 @@ def _safe_input(prompt: str) -> str:
 
 def _is_mp4(path: Path) -> bool:
     return path.suffix.lower() == ".mp4"
+
+
+def _preload_model_or_warn() -> None:
+    """
+    Load model once at agent startup.
+    If CACHE_ONLY=True and cache is missing, print a clear hint.
+    """
+    if not PRELOAD_MODEL_ON_START:
+        return
+
+    if is_model_loaded():
+        return
+
+    print("\n[Model] Preloading model at agent startup...")
+    try:
+        init_model(model_name=MODEL_NAME, local_files_only=CACHE_ONLY)
+        print("[Model] Ready.")
+    except Exception as e:
+        print(f"[Model] Preload failed: {e}")
+        if CACHE_ONLY:
+            print(
+                "[Hint] You enabled CACHE_ONLY=True, but cache may be missing.\n"
+                "       Run once with CACHE_ONLY=False to download into model/hf_cache/, then switch back to True."
+            )
+        # Don't crash the whole CLI; user can still upload/list videos.
+        # Summary will fail later until model is available.
 
 
 # -----------------------------
@@ -253,6 +288,8 @@ def run_list_and_select_video(store: VideoStore) -> None:
                 context = summary_pipeline(str(path))
             except Exception as e:
                 print(f"Summary pipeline failed: {e}")
+                if CACHE_ONLY:
+                    print("[Hint] If this is the first run, set CACHE_ONLY=False to download the model into model/hf_cache/.")
                 continue
 
             print("\n[OK] Video loaded & analyzed. Entering QA...")
@@ -290,7 +327,6 @@ def run_free_mode(store: VideoStore) -> None:
             if new_name == "":
                 new_name = None
 
-            # Confirm overwrite if needed
             src_p = Path(src).expanduser().resolve()
             dst_p = store._dst_path(src_p, new_name)
             if dst_p.exists():
@@ -310,6 +346,9 @@ def run_free_mode(store: VideoStore) -> None:
 
 def main() -> None:
     store = VideoStore(UPLOAD_DIR)
+
+    # NEW: preload model once at agent startup
+    _preload_model_or_warn()
 
     while True:
         choice = main_menu()

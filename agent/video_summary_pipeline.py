@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from data.video_interface import slice_video          # returns (manifest_path, manifest_json)
-from memory.memory_interface import memory_ingest                   # memory_ingest(record: dict) -> None
+from data.video_interface import slice_video                 # returns (manifest_path, manifest_json)
+from memory.memory_interface import memory_ingest            # memory_ingest(record: dict) -> None
 
-
-from model.model_interface import model_interface
+# NOTE: import init_model to preload + control local_files_only
+from model.model_interface import init_model, model_interface
 
 
 # =========================
@@ -55,12 +55,10 @@ def extract_outer_json(text: str) -> Optional[str]:
     # strip fenced code blocks
     if s.startswith("```"):
         s = s.strip()
-        # remove leading ```json or ```
         if s.startswith("```json"):
-            s = s[len("```json"):].strip()
+            s = s[len("```json") :].strip()
         elif s.startswith("```"):
-            s = s[len("```"):].strip()
-        # remove trailing ```
+            s = s[len("```") :].strip()
         if s.endswith("```"):
             s = s[: -len("```")].strip()
 
@@ -151,7 +149,11 @@ def summarize_video_for_cli(
     *,
     use_prev_summary: bool = True,
     evidence_per_chunk: int = 2,
+    local_files_only: bool = False,   # <- 建议：缓存有了就改 True（强制离线/只读缓存）
 ) -> str:
+    # Preload model ONCE (per process). HF weights are reused from model/hf_cache/
+    init_model(local_files_only=local_files_only)
+
     manifest_path, manifest_json = slice_video(str(video_path))
     manifest_path = Path(manifest_path)
 
@@ -163,7 +165,6 @@ def summarize_video_for_cli(
     chunk_summaries: List[str] = []
 
     for chunk in chunks:
-        # skip empty chunks (no frames)
         if not chunk.image_paths:
             continue
 
