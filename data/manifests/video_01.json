@@ -1,0 +1,341 @@
+{
+  "manifest_version": "1.0",
+  "video_id": "video_01",
+  "video_path": "data/videos/video_01.mp4",
+  "fps": 17.404667004278526,
+  "duration_sec": 653.216,
+  "chunk_seconds": 30,
+  "keyframes_per_chunk": 8,
+  "chunks": [
+    {
+      "chunk_id": 0,
+      "t_start": 0,
+      "t_end": 30,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_000/img_00.jpg",
+        "data/keyframes/video_01/chunk_000/img_01.jpg",
+        "data/keyframes/video_01/chunk_000/img_02.jpg",
+        "data/keyframes/video_01/chunk_000/img_03.jpg",
+        "data/keyframes/video_01/chunk_000/img_04.jpg",
+        "data/keyframes/video_01/chunk_000/img_05.jpg",
+        "data/keyframes/video_01/chunk_000/img_06.jpg",
+        "data/keyframes/video_01/chunk_000/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 1,
+      "t_start": 30,
+      "t_end": 60,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_001/img_00.jpg",
+        "data/keyframes/video_01/chunk_001/img_01.jpg",
+        "data/keyframes/video_01/chunk_001/img_02.jpg",
+        "data/keyframes/video_01/chunk_001/img_03.jpg",
+        "data/keyframes/video_01/chunk_001/img_04.jpg",
+        "data/keyframes/video_01/chunk_001/img_05.jpg",
+        "data/keyframes/video_01/chunk_001/img_06.jpg",
+        "data/keyframes/video_01/chunk_001/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 2,
+      "t_start": 60,
+      "t_end": 90,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_002/img_00.jpg",
+        "data/keyframes/video_01/chunk_002/img_01.jpg",
+        "data/keyframes/video_01/chunk_002/img_02.jpg",
+        "data/keyframes/video_01/chunk_002/img_03.jpg",
+        "data/keyframes/video_01/chunk_002/img_04.jpg",
+        "data/keyframes/video_01/chunk_002/img_05.jpg",
+        "data/keyframes/video_01/chunk_002/img_06.jpg",
+        "data/keyframes/video_01/chunk_002/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 3,
+      "t_start": 90,
+      "t_end": 120,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_003/img_00.jpg",
+        "data/keyframes/video_01/chunk_003/img_01.jpg",
+        "data/keyframes/video_01/chunk_003/img_02.jpg",
+        "data/keyframes/video_01/chunk_003/img_03.jpg",
+        "data/keyframes/video_01/chunk_003/img_04.jpg",
+        "data/keyframes/video_01/chunk_003/img_05.jpg",
+        "data/keyframes/video_01/chunk_003/img_06.jpg",
+        "data/keyframes/video_01/chunk_003/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 4,
+      "t_start": 120,
+      "t_end": 150,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_004/img_00.jpg",
+        "data/keyframes/video_01/chunk_004/img_01.jpg",
+        "data/keyframes/video_01/chunk_004/img_02.jpg",
+        "data/keyframes/video_01/chunk_004/img_03.jpg",
+        "data/keyframes/video_01/chunk_004/img_04.jpg",
+        "data/keyframes/video_01/chunk_004/img_05.jpg",
+        "data/keyframes/video_01/chunk_004/img_06.jpg",
+        "data/keyframes/video_01/chunk_004/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 5,
+      "t_start": 150,
+      "t_end": 180,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_005/img_00.jpg",
+        "data/keyframes/video_01/chunk_005/img_01.jpg",
+        "data/keyframes/video_01/chunk_005/img_02.jpg",
+        "data/keyframes/video_01/chunk_005/img_03.jpg",
+        "data/keyframes/video_01/chunk_005/img_04.jpg",
+        "data/keyframes/video_01/chunk_005/img_05.jpg",
+        "data/keyframes/video_01/chunk_005/img_06.jpg",
+        "data/keyframes/video_01/chunk_005/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 6,
+      "t_start": 180,
+      "t_end": 210,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_006/img_00.jpg",
+        "data/keyframes/video_01/chunk_006/img_01.jpg",
+        "data/keyframes/video_01/chunk_006/img_02.jpg",
+        "data/keyframes/video_01/chunk_006/img_03.jpg",
+        "data/keyframes/video_01/chunk_006/img_04.jpg",
+        "data/keyframes/video_01/chunk_006/img_05.jpg",
+        "data/keyframes/video_01/chunk_006/img_06.jpg",
+        "data/keyframes/video_01/chunk_006/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 7,
+      "t_start": 210,
+      "t_end": 240,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_007/img_00.jpg",
+        "data/keyframes/video_01/chunk_007/img_01.jpg",
+        "data/keyframes/video_01/chunk_007/img_02.jpg",
+        "data/keyframes/video_01/chunk_007/img_03.jpg",
+        "data/keyframes/video_01/chunk_007/img_04.jpg",
+        "data/keyframes/video_01/chunk_007/img_05.jpg",
+        "data/keyframes/video_01/chunk_007/img_06.jpg",
+        "data/keyframes/video_01/chunk_007/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 8,
+      "t_start": 240,
+      "t_end": 270,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_008/img_00.jpg",
+        "data/keyframes/video_01/chunk_008/img_01.jpg",
+        "data/keyframes/video_01/chunk_008/img_02.jpg",
+        "data/keyframes/video_01/chunk_008/img_03.jpg",
+        "data/keyframes/video_01/chunk_008/img_04.jpg",
+        "data/keyframes/video_01/chunk_008/img_05.jpg",
+        "data/keyframes/video_01/chunk_008/img_06.jpg",
+        "data/keyframes/video_01/chunk_008/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 9,
+      "t_start": 270,
+      "t_end": 300,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_009/img_00.jpg",
+        "data/keyframes/video_01/chunk_009/img_01.jpg",
+        "data/keyframes/video_01/chunk_009/img_02.jpg",
+        "data/keyframes/video_01/chunk_009/img_03.jpg",
+        "data/keyframes/video_01/chunk_009/img_04.jpg",
+        "data/keyframes/video_01/chunk_009/img_05.jpg",
+        "data/keyframes/video_01/chunk_009/img_06.jpg",
+        "data/keyframes/video_01/chunk_009/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 10,
+      "t_start": 300,
+      "t_end": 330,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_010/img_00.jpg",
+        "data/keyframes/video_01/chunk_010/img_01.jpg",
+        "data/keyframes/video_01/chunk_010/img_02.jpg",
+        "data/keyframes/video_01/chunk_010/img_03.jpg",
+        "data/keyframes/video_01/chunk_010/img_04.jpg",
+        "data/keyframes/video_01/chunk_010/img_05.jpg",
+        "data/keyframes/video_01/chunk_010/img_06.jpg",
+        "data/keyframes/video_01/chunk_010/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 11,
+      "t_start": 330,
+      "t_end": 360,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_011/img_00.jpg",
+        "data/keyframes/video_01/chunk_011/img_01.jpg",
+        "data/keyframes/video_01/chunk_011/img_02.jpg",
+        "data/keyframes/video_01/chunk_011/img_03.jpg",
+        "data/keyframes/video_01/chunk_011/img_04.jpg",
+        "data/keyframes/video_01/chunk_011/img_05.jpg",
+        "data/keyframes/video_01/chunk_011/img_06.jpg",
+        "data/keyframes/video_01/chunk_011/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 12,
+      "t_start": 360,
+      "t_end": 390,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_012/img_00.jpg",
+        "data/keyframes/video_01/chunk_012/img_01.jpg",
+        "data/keyframes/video_01/chunk_012/img_02.jpg",
+        "data/keyframes/video_01/chunk_012/img_03.jpg",
+        "data/keyframes/video_01/chunk_012/img_04.jpg",
+        "data/keyframes/video_01/chunk_012/img_05.jpg",
+        "data/keyframes/video_01/chunk_012/img_06.jpg",
+        "data/keyframes/video_01/chunk_012/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 13,
+      "t_start": 390,
+      "t_end": 420,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_013/img_00.jpg",
+        "data/keyframes/video_01/chunk_013/img_01.jpg",
+        "data/keyframes/video_01/chunk_013/img_02.jpg",
+        "data/keyframes/video_01/chunk_013/img_03.jpg",
+        "data/keyframes/video_01/chunk_013/img_04.jpg",
+        "data/keyframes/video_01/chunk_013/img_05.jpg",
+        "data/keyframes/video_01/chunk_013/img_06.jpg",
+        "data/keyframes/video_01/chunk_013/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 14,
+      "t_start": 420,
+      "t_end": 450,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_014/img_00.jpg",
+        "data/keyframes/video_01/chunk_014/img_01.jpg",
+        "data/keyframes/video_01/chunk_014/img_02.jpg",
+        "data/keyframes/video_01/chunk_014/img_03.jpg",
+        "data/keyframes/video_01/chunk_014/img_04.jpg",
+        "data/keyframes/video_01/chunk_014/img_05.jpg",
+        "data/keyframes/video_01/chunk_014/img_06.jpg",
+        "data/keyframes/video_01/chunk_014/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 15,
+      "t_start": 450,
+      "t_end": 480,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_015/img_00.jpg",
+        "data/keyframes/video_01/chunk_015/img_01.jpg",
+        "data/keyframes/video_01/chunk_015/img_02.jpg",
+        "data/keyframes/video_01/chunk_015/img_03.jpg",
+        "data/keyframes/video_01/chunk_015/img_04.jpg",
+        "data/keyframes/video_01/chunk_015/img_05.jpg",
+        "data/keyframes/video_01/chunk_015/img_06.jpg",
+        "data/keyframes/video_01/chunk_015/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 16,
+      "t_start": 480,
+      "t_end": 510,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_016/img_00.jpg",
+        "data/keyframes/video_01/chunk_016/img_01.jpg",
+        "data/keyframes/video_01/chunk_016/img_02.jpg",
+        "data/keyframes/video_01/chunk_016/img_03.jpg",
+        "data/keyframes/video_01/chunk_016/img_04.jpg",
+        "data/keyframes/video_01/chunk_016/img_05.jpg",
+        "data/keyframes/video_01/chunk_016/img_06.jpg",
+        "data/keyframes/video_01/chunk_016/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 17,
+      "t_start": 510,
+      "t_end": 540,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_017/img_00.jpg",
+        "data/keyframes/video_01/chunk_017/img_01.jpg",
+        "data/keyframes/video_01/chunk_017/img_02.jpg",
+        "data/keyframes/video_01/chunk_017/img_03.jpg",
+        "data/keyframes/video_01/chunk_017/img_04.jpg",
+        "data/keyframes/video_01/chunk_017/img_05.jpg",
+        "data/keyframes/video_01/chunk_017/img_06.jpg",
+        "data/keyframes/video_01/chunk_017/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 18,
+      "t_start": 540,
+      "t_end": 570,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_018/img_00.jpg",
+        "data/keyframes/video_01/chunk_018/img_01.jpg",
+        "data/keyframes/video_01/chunk_018/img_02.jpg",
+        "data/keyframes/video_01/chunk_018/img_03.jpg",
+        "data/keyframes/video_01/chunk_018/img_04.jpg",
+        "data/keyframes/video_01/chunk_018/img_05.jpg",
+        "data/keyframes/video_01/chunk_018/img_06.jpg",
+        "data/keyframes/video_01/chunk_018/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 19,
+      "t_start": 570,
+      "t_end": 600,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_019/img_00.jpg",
+        "data/keyframes/video_01/chunk_019/img_01.jpg",
+        "data/keyframes/video_01/chunk_019/img_02.jpg",
+        "data/keyframes/video_01/chunk_019/img_03.jpg",
+        "data/keyframes/video_01/chunk_019/img_04.jpg",
+        "data/keyframes/video_01/chunk_019/img_05.jpg",
+        "data/keyframes/video_01/chunk_019/img_06.jpg",
+        "data/keyframes/video_01/chunk_019/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 20,
+      "t_start": 600,
+      "t_end": 630,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_020/img_00.jpg",
+        "data/keyframes/video_01/chunk_020/img_01.jpg",
+        "data/keyframes/video_01/chunk_020/img_02.jpg",
+        "data/keyframes/video_01/chunk_020/img_03.jpg",
+        "data/keyframes/video_01/chunk_020/img_04.jpg",
+        "data/keyframes/video_01/chunk_020/img_05.jpg",
+        "data/keyframes/video_01/chunk_020/img_06.jpg",
+        "data/keyframes/video_01/chunk_020/img_07.jpg"
+      ]
+    },
+    {
+      "chunk_id": 21,
+      "t_start": 630,
+      "t_end": 653,
+      "chunk_images": [
+        "data/keyframes/video_01/chunk_021/img_00.jpg",
+        "data/keyframes/video_01/chunk_021/img_01.jpg",
+        "data/keyframes/video_01/chunk_021/img_02.jpg",
+        "data/keyframes/video_01/chunk_021/img_03.jpg",
+        "data/keyframes/video_01/chunk_021/img_04.jpg",
+        "data/keyframes/video_01/chunk_021/img_05.jpg",
+        "data/keyframes/video_01/chunk_021/img_06.jpg",
+        "data/keyframes/video_01/chunk_021/img_07.jpg"
+      ]
+    }
+  ]
+}
