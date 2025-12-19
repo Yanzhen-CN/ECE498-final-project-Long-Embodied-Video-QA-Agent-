@@ -8,6 +8,10 @@ transformers>=4.45.0
 accelerate
 pillow
 opencv-python
+sentencepiece
+
+
 timm
 einops
-sentencepiece
+
+

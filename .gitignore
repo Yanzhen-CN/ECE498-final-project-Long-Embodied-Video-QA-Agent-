@@ -8,3 +8,4 @@ __pycache__/
 *.jpg
 *.csv
 *.json
+model/hf_cache/

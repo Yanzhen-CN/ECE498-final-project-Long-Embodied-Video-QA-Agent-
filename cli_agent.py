@@ -49,7 +49,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Model preload behavior
 PRELOAD_MODEL_ON_START = True
-CACHE_ONLY = True  # True: only read model/hf_cache (offline/cache-only). Set False for first run to download.
+CACHE_ONLY = False  # True: only read model/hf_cache (offline/cache-only). Set False for first run to download.
 MODEL_NAME = "OpenGVLab/InternVL3_5-4B"
 
 
