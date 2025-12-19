@@ -54,7 +54,7 @@ def init_model(
         return
 
     kwargs = dict(
-        torch_dtype=dtype,
+        dtype=dtype,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
         use_flash_attn=use_flash_attn,
@@ -225,7 +225,7 @@ def model_interface(*, image_paths: List[str], prompt: str) -> str:
         return str(response)
 
     # ---- multi-image conversation (separate images) ----
-    pixel_values, num_patches_list = load_images(image_paths, input_size=448, max_num=12)
+    pixel_values, num_patches_list = load_images(image_paths, input_size=448, max_num=8)
 
     device = _model_device(model)
     target_dtype = torch.bfloat16  # matches your default init dtype
