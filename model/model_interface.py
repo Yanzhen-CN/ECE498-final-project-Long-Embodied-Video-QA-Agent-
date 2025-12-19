@@ -225,7 +225,7 @@ def model_interface(*, image_paths: List[str], prompt: str) -> str:
         return str(response)
 
     # ---- multi-image conversation (separate images) ----
-    pixel_values, num_patches_list = load_images(image_paths, input_size=336, max_num=4)
+    pixel_values, num_patches_list = load_images(image_paths, input_size=448, max_num=4)
 
     device = _model_device(model)
     target_dtype = torch.bfloat16  # matches your default init dtype
@@ -236,13 +236,17 @@ def model_interface(*, image_paths: List[str], prompt: str) -> str:
 
     question = _prefix_images(len(image_paths)) + prompt.strip()
 
-    response, _history = model.chat(
-        tokenizer,
-        pixel_values,
-        question,
-        generation_config,
-        num_patches_list=num_patches_list,
-        history=None,
-        return_history=True,
-    )
+    with torch.inference_mode():
+        response, _history = model.chat(
+            tokenizer,
+            pixel_values,
+            question,
+            generation_config,
+            num_patches_list=num_patches_list,
+            history=None,
+            return_history=True,
+        )
+    del pixel_values
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     return str(response)
