@@ -1,0 +1,10 @@
+opencv-python
+torch
+torchvision
+transformers
+
+# model
+einops
+timm
+accelerate
+protobuf

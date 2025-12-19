@@ -37,7 +37,7 @@ from agent.video_summary_pipeline import summarize_video_for_cli
 
 # NEW: preload model at agent startup
 from model.model_interface import init_model, is_model_loaded
-
+import traceback
 
 # -----------------------------
 # Configuration
@@ -118,6 +118,7 @@ def _preload_model_or_warn() -> None:
         print("[Model] Ready.")
     except Exception as e:
         print(f"[Model] Preload failed: {e}")
+        traceback.print_exc()
         if CACHE_ONLY:
             print(
                 "[Hint] You enabled CACHE_ONLY=True, but cache may be missing.\n"
