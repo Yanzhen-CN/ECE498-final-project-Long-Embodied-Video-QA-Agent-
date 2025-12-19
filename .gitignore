@@ -5,7 +5,7 @@ data/videos/
 *.mkv
 __pycache__/
 *.pyc
-*.jpg
+*.tar
 *.csv
 *.json
 model/hf_cache/
