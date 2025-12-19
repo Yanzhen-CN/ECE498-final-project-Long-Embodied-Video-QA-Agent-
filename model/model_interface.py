@@ -42,7 +42,7 @@ def init_model(
     model_name: str = "OpenGVLab/InternVL3_5-4B",  # or "OpenGVLab/InternVL3_5-8B"
     dtype: torch.dtype = torch.bfloat16,
     use_flash_attn: bool = False,
-    device_map: Optional[str] = None,  # set "auto" if you want; otherwise None + .cuda()
+    device_map: Optional[str] = "auto",  # set "auto" if you want; otherwise None + .cuda()
     local_files_only: bool = False,    # set True after first download to enforce offline/cache-only
 ) -> None:
     """
