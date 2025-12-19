@@ -217,7 +217,7 @@ def model_interface(*, image_paths: List[str], prompt: str) -> str:
     model = bundle.model
     tokenizer = bundle.tokenizer
 
-    generation_config = dict(max_new_tokens=1024, do_sample=False)
+    generation_config = dict(max_new_tokens=512, do_sample=False)
 
     # ---- pure-text conversation ----
     if not image_paths:
@@ -225,7 +225,7 @@ def model_interface(*, image_paths: List[str], prompt: str) -> str:
         return str(response)
 
     # ---- multi-image conversation (separate images) ----
-    pixel_values, num_patches_list = load_images(image_paths, input_size=448, max_num=8)
+    pixel_values, num_patches_list = load_images(image_paths, input_size=336, max_num=4)
 
     device = _model_device(model)
     target_dtype = torch.bfloat16  # matches your default init dtype
