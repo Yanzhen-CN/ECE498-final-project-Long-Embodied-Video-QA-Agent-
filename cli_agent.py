@@ -1,43 +1,17 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-cli_agent.py
-
-Terminal CLI agent:
-- Main:
-    -1: exit
-     1: test mode (placeholder)
-     2: free QA mode
-
-- Free QA mode:
-    -1: exit
-     0: back to main mode selection
-     1: list uploaded videos (names)
-     2: upload video (input path; must exist and be .mp4)
-
-- If choose list uploaded videos:
-    0: back
-    1: input a video name -> run summary pipeline -> then enter QA loop
-
-- QA loop:
-    -1: exit
-     0: back to main mode selection
-     1: ask a question (repeat)
-"""
-
 from __future__ import annotations
 
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from agent.video_summary_pipeline import summarize_video_for_cli
-
-# NEW: preload model at agent startup
+from agent.video_summary_pipeline import summarize_video_for_cli, MODES
 from model.model_interface import init_model, is_model_loaded
-import traceback
+
 
 # -----------------------------
 # Configuration
@@ -49,38 +23,8 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Model preload behavior
 PRELOAD_MODEL_ON_START = True
-CACHE_ONLY = True  # True: only read model/hf_cache (offline/cache-only). Set False for first run to download.
+CACHE_ONLY = False  # True: offline/cache-only
 MODEL_NAME = "OpenGVLab/InternVL3_5-4B"
-
-
-# -----------------------------
-# Integration hooks
-# -----------------------------
-def summary_pipeline(video_path: str) -> str:
-    """
-    Real summary pipeline.
-    Input: local path to uploaded .mp4
-    Output: CLI-friendly summary string
-    """
-    return summarize_video_for_cli(
-        video_path,
-        use_prev_summary=True,
-        evidence_per_chunk=2,
-        local_files_only=CACHE_ONLY,   # NEW: force cache-only if desired
-    )
-
-
-def answer_question(context: str, question: str) -> str:
-    """
-    QA hook.
-    For now, we use `context` (summary text) as input.
-    Replace this with your real QA module later.
-    """
-    return (
-        "[TODO] Replace answer_question() with your QA module.\n"
-        f"Question: {question}\n"
-        f"Context (summary, truncated): {context[:400]}..."
-    )
 
 
 # -----------------------------
@@ -102,13 +46,8 @@ def _is_mp4(path: Path) -> bool:
 
 
 def _preload_model_or_warn() -> None:
-    """
-    Load model once at agent startup.
-    If CACHE_ONLY=True and cache is missing, print a clear hint.
-    """
     if not PRELOAD_MODEL_ON_START:
         return
-
     if is_model_loaded():
         return
 
@@ -118,14 +57,11 @@ def _preload_model_or_warn() -> None:
         print("[Model] Ready.")
     except Exception as e:
         print(f"[Model] Preload failed: {e}")
-        traceback.print_exc()
         if CACHE_ONLY:
             print(
-                "[Hint] You enabled CACHE_ONLY=True, but cache may be missing.\n"
-                "       Run once with CACHE_ONLY=False to download into model/hf_cache/, then switch back to True."
+                "[Hint] CACHE_ONLY=True but cache may be incomplete.\n"
+                "       Run once with CACHE_ONLY=False on a machine that can reach HuggingFace to populate model/hf_cache/."
             )
-        # Don't crash the whole CLI; user can still upload/list videos.
-        # Summary will fail later until model is available.
 
 
 # -----------------------------
@@ -133,7 +69,6 @@ def _preload_model_or_warn() -> None:
 # -----------------------------
 @dataclass
 class VideoStore:
-    """Simple local store: uploaded videos are copied into UPLOAD_DIR."""
     dir_path: Path
 
     def list_names(self) -> list[str]:
@@ -147,9 +82,8 @@ class VideoStore:
         return None
 
     def _dst_path(self, src: Path, dst_name: Optional[str]) -> Path:
-        """Decide destination path under upload dir (enforce .mp4)."""
         if dst_name is not None and dst_name.strip():
-            name = Path(dst_name.strip()).name  # prevent passing a path
+            name = Path(dst_name.strip()).name
             if not name.lower().endswith(".mp4"):
                 name += ".mp4"
             return self.dir_path / name
@@ -162,15 +96,9 @@ class VideoStore:
         *,
         overwrite: bool = False,
     ) -> Tuple[bool, str]:
-        """
-        Copy src video into upload dir.
-        - If overwrite=False and dst exists -> fail (caller can ask user).
-        - If overwrite=True -> overwrite existing file.
-        """
         src = Path(src_path).expanduser().resolve()
         if not src.exists() or not src.is_file():
             return False, f"Upload failed: file not found: {src}"
-
         if not _is_mp4(src):
             return False, f"Upload failed: only .mp4 is supported, got: {src.suffix}"
 
@@ -181,9 +109,7 @@ class VideoStore:
         try:
             print("Uploading... (copying file to local upload dir)")
             shutil.copy2(src, dst)
-            if overwrite:
-                return True, f"Upload success (overwritten): {dst.name}"
-            return True, f"Upload success: {dst.name}"
+            return True, f"Upload success{' (overwritten)' if overwrite else ''}: {dst.name}"
         except Exception as e:
             return False, f"Upload failed: {e}"
 
@@ -216,12 +142,33 @@ def list_videos_menu() -> str:
     return _safe_input("Select: ").strip()
 
 
+def analysis_mode_menu() -> str:
+    print("\n========== Analysis Mode ==========")
+    print("(-1) Exit")
+    print("( 0) Back")
+    print("( 1) Fast     (chunk=60s, frames=4, single-pass)")
+    print("( 2) Standard (chunk=30s, frames=8, TWO-pass 4+4 to avoid OOM)")
+    print("( 3) Detailed (chunk=15s, frames=8, TWO-pass 4+4)")
+    return _safe_input("Select: ").strip()
+
+
 def qa_menu() -> str:
     print("\n========== QA ==========")
     print("(-1) Exit")
     print("( 0) Back to mode selection")
     print("( 1) Ask a question")
     return _safe_input("Select: ").strip()
+
+
+# -----------------------------
+# Hooks
+# -----------------------------
+def answer_question(context: str, question: str) -> str:
+    return (
+        "[TODO] Replace answer_question() with your QA module.\n"
+        f"Question: {question}\n"
+        f"Context (summary, truncated): {context[:400]}..."
+    )
 
 
 # -----------------------------
@@ -237,21 +184,34 @@ def run_qa_loop(context: str) -> None:
         choice = qa_menu()
         if _is_exit(choice):
             raise SystemExit(0)
-
         if choice == "0":
             return
-
         if choice == "1":
             q = _safe_input("Your question (-1 to exit): ").strip()
             if _is_exit(q):
                 raise SystemExit(0)
-
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
             print("--------------------------")
         else:
             print("Invalid option. Please choose 0/1/-1.")
+
+
+def _pick_mode() -> Optional[str]:
+    while True:
+        c = analysis_mode_menu()
+        if _is_exit(c):
+            raise SystemExit(0)
+        if c == "0":
+            return None
+        if c == "1":
+            return "fast"
+        if c == "2":
+            return "standard"
+        if c == "3":
+            return "detailed"
+        print("Invalid option. Please choose 0/1/2/3/-1.")
 
 
 def run_list_and_select_video(store: VideoStore) -> None:
@@ -268,7 +228,6 @@ def run_list_and_select_video(store: VideoStore) -> None:
         choice = list_videos_menu()
         if _is_exit(choice):
             raise SystemExit(0)
-
         if choice == "0":
             return
 
@@ -284,16 +243,24 @@ def run_list_and_select_video(store: VideoStore) -> None:
                 print("Video not found. Please check the name and try again.")
                 continue
 
-            print("\nRunning summary pipeline (video slicing + model analysis + memory ingest)...")
-            try:
-                context = summary_pipeline(str(path))
-            except Exception as e:
-                print(f"Summary pipeline failed: {e}")
-                if CACHE_ONLY:
-                    print("[Hint] If this is the first run, set CACHE_ONLY=False to download the model into model/hf_cache/.")
+            mode = _pick_mode()
+            if mode is None:
                 continue
 
-            print("\n[OK] Video loaded & analyzed. Entering QA...")
+            print(f"\nRunning summary pipeline... mode='{MODES[mode].name}'")
+            try:
+                context = summarize_video_for_cli(str(path), mode=mode, local_files_only=CACHE_ONLY)
+            except RuntimeError as e:
+                msg = str(e)
+                print(f"Summary pipeline failed: {msg}")
+                if "CUDA out of memory" in msg:
+                    print("[Hint] OOM: try mode=Fast first, or keep Standard (two-pass) but ensure max_num=2 + thumbnail off.")
+                return
+            except Exception as e:
+                print(f"Summary pipeline failed: {e}")
+                return
+
+            print("\n[OK] Video analyzed. Entering QA...")
             run_qa_loop(context)
             return
 
@@ -305,14 +272,11 @@ def run_free_mode(store: VideoStore) -> None:
         choice = free_mode_menu()
         if _is_exit(choice):
             raise SystemExit(0)
-
         if choice == "0":
             return
-
         if choice == "1":
             run_list_and_select_video(store)
             continue
-
         if choice == "2":
             src = _safe_input("Enter video file path (.mp4) (0 back, -1 exit): ").strip()
             if _is_exit(src):
@@ -348,14 +312,12 @@ def run_free_mode(store: VideoStore) -> None:
 def main() -> None:
     store = VideoStore(UPLOAD_DIR)
 
-    # NEW: preload model once at agent startup
     _preload_model_or_warn()
 
     while True:
         choice = main_menu()
         if _is_exit(choice):
             break
-
         if choice == "1":
             run_test_mode()
         elif choice == "2":

@@ -1,9 +1,8 @@
-# model/interface.py
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple, Any
+from typing import Any, List, Optional, Tuple
 
 import torch
 import torchvision.transforms as T
@@ -13,16 +12,15 @@ from transformers import AutoModel, AutoTokenizer
 
 
 # =========================
-# 0) Fixed local HF cache under /model
-#    Download once -> reuse forever (as long as this folder persists)
+# Persistent HF cache under project/model/hf_cache
 # =========================
 _THIS_DIR = Path(__file__).resolve().parent
-HF_CACHE_DIR = _THIS_DIR / "hf_cache"   # e.g., <repo_root>/model/hf_cache
+HF_CACHE_DIR = _THIS_DIR / "hf_cache"
 HF_CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # =========================
-# 1) Global cache (load once per process)
+# Global cache (load once per process)
 # =========================
 @dataclass
 class _Bundle:
@@ -37,17 +35,34 @@ def is_model_loaded() -> bool:
     return _BUNDLE is not None
 
 
+@dataclass(frozen=True)
+class InferConfig:
+    """
+    Keep inference knobs here (NOT in pipeline signature).
+    """
+    max_new_tokens: int = 256
+    do_sample: bool = False
+
+    # InternVL dynamic tiling controls
+    input_size: int = 448
+    max_num: int = 2            # IMPORTANT: keep small to reduce VRAM peak
+    use_thumbnail: bool = False # IMPORTANT: avoid extra tile per image
+
+    # Debug
+    debug_tiles: bool = False
+
+
 def init_model(
     *,
-    model_name: str = "OpenGVLab/InternVL3_5-4B",  # or "OpenGVLab/InternVL3_5-8B"
+    model_name: str = "OpenGVLab/InternVL3_5-4B",
     dtype: torch.dtype = torch.bfloat16,
     use_flash_attn: bool = False,
-    device_map: Optional[str] = None,  # set "auto" if you want; otherwise None + .cuda()
-    local_files_only: bool = False,    # set True after first download to enforce offline/cache-only
+    local_files_only: bool = False,
+    device_map: Optional[str] = "auto",
 ) -> None:
     """
-    Load InternVL3.5 model ONCE and cache globally.
-    HuggingFace weights will be stored under `model/hf_cache/` (this folder).
+    Load model once. Weights/tokenizer are cached under model/hf_cache/.
+    Set local_files_only=True to enforce offline/cache-only.
     """
     global _BUNDLE
     if _BUNDLE is not None:
@@ -58,23 +73,38 @@ def init_model(
         low_cpu_mem_usage=True,
         trust_remote_code=True,
         use_flash_attn=use_flash_attn,
-        cache_dir=str(HF_CACHE_DIR),         # <-- key: persist under model/
-        local_files_only=local_files_only,   # <-- key: force cache-only if True
-    )
-    if device_map is not None:
-        kwargs["device_map"] = device_map
-
-    model = AutoModel.from_pretrained(model_name, **kwargs).eval()
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        model_name,
-        trust_remote_code=True,
-        use_fast=False,
-        cache_dir=str(HF_CACHE_DIR),         # <-- also persist tokenizer files
+        cache_dir=str(HF_CACHE_DIR),
         local_files_only=local_files_only,
     )
 
-    # If not using device_map, move to GPU if available
+    # Optional multi-gpu (leave off by default; your environment had issues)
+    if device_map is not None:
+        offload_dir = HF_CACHE_DIR / "offload"
+        offload_dir.mkdir(parents=True, exist_ok=True)
+        kwargs["device_map"] = device_map
+        kwargs["max_memory"] = {0: "22GiB", 1: "22GiB"}
+        kwargs["offload_folder"] = str(offload_dir)
+
+    model = AutoModel.from_pretrained(model_name, **kwargs).eval()
+
+    # tokenizer: prefer fast, fallback to slow
+    try:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            use_fast=True,
+            cache_dir=str(HF_CACHE_DIR),
+            local_files_only=local_files_only,
+        )
+    except Exception:
+        tokenizer = AutoTokenizer.from_pretrained(
+            model_name,
+            trust_remote_code=True,
+            use_fast=False,
+            cache_dir=str(HF_CACHE_DIR),
+            local_files_only=local_files_only,
+        )
+
     if device_map is None and torch.cuda.is_available():
         model = model.cuda()
 
@@ -89,7 +119,6 @@ def _get_bundle() -> _Bundle:
 
 
 def _model_device(model: Any) -> torch.device:
-    # robust: works for both normal and device_map models
     try:
         return next(model.parameters()).device
     except StopIteration:
@@ -97,7 +126,7 @@ def _model_device(model: Any) -> torch.device:
 
 
 # =========================
-# 2) Image preprocessing (tiles -> tensor)
+# Image preprocessing (dynamic tiling)
 # =========================
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
@@ -135,14 +164,11 @@ def _find_closest_aspect_ratio(
 def _dynamic_preprocess(
     image: Image.Image,
     *,
-    image_size: int = 448,
-    min_num: int = 1,
-    max_num: int = 12,
-    use_thumbnail: bool = True,
+    image_size: int,
+    min_num: int,
+    max_num: int,
+    use_thumbnail: bool,
 ) -> List[Image.Image]:
-    """
-    Split one image into multiple 448x448 tiles (<= max_num) + optional thumbnail.
-    """
     w, h = image.size
     aspect_ratio = w / h
 
@@ -171,26 +197,36 @@ def _dynamic_preprocess(
     return tiles
 
 
-def load_image(image_path: str, *, input_size: int = 448, max_num: int = 12) -> torch.Tensor:
-    """
-    Returns: pixel_values [num_tiles, 3, H, W] on CPU (caller moves to device/dtype)
-    """
+def load_image(
+    image_path: str,
+    *,
+    input_size: int,
+    max_num: int,
+    use_thumbnail: bool,
+) -> torch.Tensor:
     img = Image.open(image_path).convert("RGB")
-    tiles = _dynamic_preprocess(img, image_size=input_size, max_num=max_num, use_thumbnail=True)
+    tiles = _dynamic_preprocess(
+        img,
+        image_size=input_size,
+        min_num=1,
+        max_num=max_num,
+        use_thumbnail=use_thumbnail,
+    )
     tfm = _build_transform(input_size)
     return torch.stack([tfm(t) for t in tiles], dim=0)
 
 
-def load_images(image_paths: List[str], *, input_size: int = 448, max_num: int = 12) -> Tuple[torch.Tensor, List[int]]:
-    """
-    For N images:
-      pixel_values: concatenated tiles [sum(num_tiles_i), 3, H, W]
-      num_patches_list: [num_tiles_1, ..., num_tiles_N]
-    """
+def load_images(
+    image_paths: List[str],
+    *,
+    input_size: int,
+    max_num: int,
+    use_thumbnail: bool,
+) -> Tuple[torch.Tensor, List[int]]:
     pv_list: List[torch.Tensor] = []
     npl: List[int] = []
     for p in image_paths:
-        pv = load_image(p, input_size=input_size, max_num=max_num)
+        pv = load_image(p, input_size=input_size, max_num=max_num, use_thumbnail=use_thumbnail)
         pv_list.append(pv)
         npl.append(int(pv.size(0)))
     pixel_values = torch.cat(pv_list, dim=0) if pv_list else torch.empty(0)
@@ -198,55 +234,63 @@ def load_images(image_paths: List[str], *, input_size: int = 448, max_num: int =
 
 
 # =========================
-# 3) Prompt helpers (multi-image numbering)
+# Prompt helpers
 # =========================
 def _prefix_images(n: int) -> str:
     return "".join([f"Image-{i+1}: <image>\n" for i in range(n)])
 
 
 # =========================
-# 4) Public interface
+# Public interface
 # =========================
-def model_interface(*, image_paths: List[str], prompt: str) -> str:
-    """
-    Project contract:
-      raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt)
-      returns: str (raw model output)
-    """
+def model_interface(*, image_paths: List[str], prompt: str, cfg: Optional[InferConfig] = None) -> str:
     bundle = _get_bundle()
     model = bundle.model
     tokenizer = bundle.tokenizer
 
-    generation_config = dict(max_new_tokens=512, do_sample=False)
+    cfg = cfg or InferConfig()
+    generation_config = dict(max_new_tokens=cfg.max_new_tokens, do_sample=cfg.do_sample)
 
-    # ---- pure-text conversation ----
+    # ---- text-only ----
     if not image_paths:
-        response, _history = model.chat(tokenizer, None, prompt, generation_config, history=None, return_history=True)
+        with torch.inference_mode():
+            response, _history = model.chat(tokenizer, None, prompt, generation_config, history=None, return_history=True)
         return str(response)
 
-    # ---- multi-image conversation (separate images) ----
-    pixel_values, num_patches_list = load_images(image_paths, input_size=448, max_num=4)
+    # ---- multi-image ----
+    pixel_values, num_patches_list = load_images(
+        image_paths,
+        input_size=cfg.input_size,
+        max_num=cfg.max_num,
+        use_thumbnail=cfg.use_thumbnail,
+    )
+
+    if cfg.debug_tiles:
+        total_tiles = int(sum(num_patches_list))
+        print(f"[Debug] num_images={len(image_paths)} num_patches_list={num_patches_list} total_tiles={total_tiles}")
 
     device = _model_device(model)
-    target_dtype = torch.bfloat16  # matches your default init dtype
     if device.type == "cuda":
-        pixel_values = pixel_values.to(device=device, dtype=target_dtype)
+        pixel_values = pixel_values.to(device=device, dtype=torch.bfloat16)
     else:
         pixel_values = pixel_values.to(device=device)
 
     question = _prefix_images(len(image_paths)) + prompt.strip()
 
-    with torch.inference_mode():
-        response, _history = model.chat(
-            tokenizer,
-            pixel_values,
-            question,
-            generation_config,
-            num_patches_list=num_patches_list,
-            history=None,
-            return_history=True,
-        )
-    del pixel_values
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    return str(response)
+    try:
+        with torch.inference_mode():
+            response, _history = model.chat(
+                tokenizer,
+                pixel_values,
+                question,
+                generation_config,
+                num_patches_list=num_patches_list,
+                history=None,
+                return_history=True,
+            )
+        return str(response)
+    finally:
+        # reduce fragmentation across chunks
+        del pixel_values
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
