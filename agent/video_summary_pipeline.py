@@ -26,7 +26,6 @@ class ChunkSpec:
 @dataclass(frozen=True)
 class SliceConfig:
     chunk_seconds: int
-    keyframes_per_chunk: int
 
 
 @dataclass(frozen=True)
@@ -40,29 +39,28 @@ class ModeConfig:
 # =========================
 # Analysis modes (3 presets)
 # =========================
-MODES: Dict[str, ModeConfig] = {
-    # Fast: fewer chunks + fewer frames, single pass
-    "fast": ModeConfig(
-        name="Fast",
-        slice_cfg=SliceConfig(chunk_seconds=60, keyframes_per_chunk=4),
-        infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
-        two_pass=False,
-    ),
-    # Standard: your current slicing (30s, 8 frames) but two-pass to avoid OOM
-    "standard": ModeConfig(
-        name="Standard",
-        slice_cfg=SliceConfig(chunk_seconds=30, keyframes_per_chunk=8),
-        infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-        two_pass=True,
-    ),
-    # Detailed: more temporal resolution, keep frames=8 but still two-pass
-    "detailed": ModeConfig(
-        name="Detailed",
-        slice_cfg=SliceConfig(chunk_seconds=15, keyframes_per_chunk=8),
-        infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-        two_pass=True,
-    ),
+KEYFRAMES_PER_CHUNK = 6
+MODES = {
+  "fast": ModeConfig(
+      name="Fast",
+      slice_cfg=SliceConfig(chunk_seconds=60),
+      infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
+      two_pass=False,
+  ),
+  "standard": ModeConfig(
+      name="Standard",
+      slice_cfg=SliceConfig(chunk_seconds=30),
+      infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
+      two_pass=True,
+  ),
+  "detailed": ModeConfig(
+      name="Detailed",
+      slice_cfg=SliceConfig(chunk_seconds=15),
+      infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
+      two_pass=True,
+  ),
 }
+
 
 
 # =========================
@@ -217,7 +215,7 @@ def summarize_video_for_cli(
     manifest_path, manifest_json = slice_video(
         str(video_path),
         chunk_seconds=cfg.slice_cfg.chunk_seconds,
-        keyframes_per_chunk=cfg.slice_cfg.keyframes_per_chunk,
+        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
         overwrite=True,
     )
     manifest_path = Path(manifest_path)
