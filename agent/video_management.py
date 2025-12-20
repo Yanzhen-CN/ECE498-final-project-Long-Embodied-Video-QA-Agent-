@@ -22,22 +22,24 @@ def _save_registry(reg: Dict[str, any]) -> None:
     REGISTRY_PATH.write_text(json.dumps(reg, ensure_ascii=False, indent=2), encoding="utf-8")
 
 # 注册视频分析记录
-def register_analysis_run(video_name: str, mode: str, run_id: str | None = None, **kwargs) -> str:
-    """注册视频分析记录；run_id 可选，不传则自动生成。返回 run_id。"""
+def register_analysis_run(video_name: str, mode: str) -> None:
+    """注册视频分析记录"""
     reg = _load_registry()
-    reg.setdefault("runs", [])   # 不要覆盖
+    
+    video_name = Path(video_name).stem
 
-    if run_id is None:
-        run_id = f"{Path(video_name).stem}__{mode}"  # 用 stem，更一致
-
+    # 简化的 run_id 格式：video_name_mode，去掉 .mp4 后缀
+    run_id = f"{video_name}_{mode}"  # run_id 为 video_name 和 mode 的组合
+    
+    # 追加新记录到现有的 runs 列表中
     reg["runs"].append(
-        {"video_name": video_name, "mode": mode, "run_id": run_id}
+        {
+            "video_name": video_name,
+            "mode": mode,
+            "run_id": run_id,  # 自动生成 run_id
+        }
     )
     _save_registry(reg)
-    return run_id
-
-def register__analysis_run(video_name: str, mode: str, run_id: str | None = None, **kwargs) -> str:
-    return register_analysis_run(video_name=video_name, mode=mode, run_id=run_id, **kwargs)
 
 # 列出所有已分析的记录
 def list_analysis_runs() -> List[Dict[str, any]]:

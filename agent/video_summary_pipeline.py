@@ -242,10 +242,9 @@ def summarize_video_for_cli(
     # registry
     try:
         register_analysis_run(
-    video_name=video_name,
-    mode=mode_key,
-    run_id=run_id,
-    )   
+            video_name=video_name,
+            mode=mode_key,  # Automatically handled
+        )
     except:
         print("register fail, but the summary finish, you can start QA now")
 
