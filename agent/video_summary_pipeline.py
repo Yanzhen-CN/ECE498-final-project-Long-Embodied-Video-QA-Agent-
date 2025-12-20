@@ -44,7 +44,7 @@ KEYFRAMES_PER_CHUNK = 6
 MODES: Dict[str, ModeConfig] = {
     "fast": ModeConfig(
         name="Fast",
-        slice_cfg=SliceConfig(chunk_seconds=60),
+        slice_cfg=SliceConfig(chunk_seconds=45),
         infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
         two_pass=False,
     ),
@@ -224,32 +224,6 @@ def normalize_record(
 
     return rec
 
-
-def _two_pass_infer(frames: List[str], base_prompt: str, infer_cfg: InferConfig) -> str:
-    """
-    For 6 frames: split 3 + 3 to reduce peak VRAM.
-    Pass1 returns plain text. Pass2 returns final JSON for whole chunk.
-    """
-    if len(frames) <= 3:
-        return model_interface(image_paths=frames, prompt=base_prompt, cfg=infer_cfg)
-
-    mid = len(frames) // 2  # 6 -> 3
-    first = frames[:mid]
-    second = frames[mid:]
-
-    prompt1 = base_prompt + "\n\nYou only see the FIRST half frames. Summarize briefly in plain text (no JSON)."
-    partial = model_interface(image_paths=first, prompt=prompt1, cfg=infer_cfg)
-
-    prompt2 = (
-        base_prompt
-        + "\n\nYou only see the SECOND half frames.\n"
-        + "First-half summary (may be imperfect):\n"
-        + partial.strip()
-        + "\n\nNow output FINAL JSON for the whole chunk."
-    )
-    return model_interface(image_paths=second, prompt=prompt2, cfg=infer_cfg)
-
-
 # =========================
 # Public API for CLI
 # =========================
@@ -297,10 +271,8 @@ def summarize_video_for_cli(
 
         prompt = build_prompt(chunk, prev_summary if use_prev_summary else "")
 
-        if cfg.two_pass:
-            raw_text = _two_pass_infer(chunk.image_paths, prompt, cfg.infer_cfg)
-        else:
-            raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt, cfg=cfg.infer_cfg)
+
+        raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt, cfg=cfg.infer_cfg)
 
         record = normalize_record(
             raw_text,
