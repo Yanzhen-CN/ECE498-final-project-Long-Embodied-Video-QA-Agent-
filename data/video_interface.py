@@ -49,7 +49,7 @@ def slice_video(
     metadata_dir = base / "metadata"
 
     manifest_path = manifests_dir / f"{vid}.json"
-    csv_path = metadata_dir / f"{vid}.csv"
+    metadata_path = metadata_dir / f"{vid}.csv"
 
     if overwrite:
         base = data_root_p / "processed_videos" / vid
@@ -105,7 +105,7 @@ def slice_video(
         t_start = ci * chunk_seconds
         t_end = min((ci + 1) * chunk_seconds, duration_sec)
 
-        chunk_dir = keyframes_root / f"chunk_{ci:03d}"
+        chunk_dir = keyframes_dir / f"chunk_{ci:03d}"
         _ensure_dir(chunk_dir)
 
         chunk_images = []
