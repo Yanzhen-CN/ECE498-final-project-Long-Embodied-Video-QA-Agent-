@@ -23,7 +23,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Model preload behavior
 PRELOAD_MODEL_ON_START = True
-CACHE_ONLY = False  # True: offline/cache-only
+CACHE_ONLY = True  # True: offline/cache-only
 MODEL_NAME = "OpenGVLab/InternVL3_5-4B"
 
 
