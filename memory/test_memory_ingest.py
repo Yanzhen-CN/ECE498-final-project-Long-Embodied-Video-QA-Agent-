@@ -62,38 +62,6 @@ def main() -> None:
     print(" - ./saved_videos/vid_demo_002/0030-0060.jsonl")
 
 
-def clean_memory(video_id: str, memory_root: str = "memory/saved_videos") -> bool:
-    """
-    Delete all chunk memories for a given video_id by removing:
-      {memory_root}/{video_id}/
-
-    Returns:
-        True  -> directory existed and was deleted
-        False -> directory not found (nothing to delete)
-    """
-    if not video_id or not video_id.strip():
-        raise ValueError("video_id is required")
-
-    # Safety: forbid path traversal / nested paths
-    if Path(video_id).name != video_id or "/" in video_id or "\\" in video_id:
-        raise ValueError(f"Invalid video_id: {video_id}")
-
-    root = Path(memory_root).resolve()
-    target_dir = (root / video_id).resolve()
-
-    # Safety: ensure target_dir is inside root
-    if root not in target_dir.parents and target_dir != root:
-        raise ValueError("Refusing to delete: target directory is outside memory_root")
-
-    if not target_dir.exists():
-        return False
-
-    if not target_dir.is_dir():
-        raise ValueError(f"Expected a directory for video_id, but got file: {target_dir}")
-
-    shutil.rmtree(target_dir)
-    return True
-
 
 if __name__ == "__main__":
     main()
