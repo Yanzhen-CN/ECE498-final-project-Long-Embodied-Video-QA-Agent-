@@ -1,0 +1,1 @@
+{"video_id": "vid_demo_001", "chunk_id": "chunk_0001", "t_start": 570, "t_end": 600, "summary": "Demo chunk: person enters the room.", "entities": [{"name": "Alice", "type": "person"}], "events": [{"type": "action", "text": "Alice enters."}], "state_update": {"location": "indoors"}, "evidence_frames": [{"frame": 123, "ts": 571.2}]}

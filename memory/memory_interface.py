@@ -32,7 +32,7 @@ def _validate_chunk_memory(chunk: Dict) -> None:
 
 def _save_chunks(
     chunks: List[Dict],
-    memory_root: str = "memory",
+    memory_root: str = "saved_videos",
 ) -> List[Path]:
     """
     Save each chunk into its own JSONL file under:
@@ -70,7 +70,7 @@ def _save_chunks(
 # ==================================================
 # ⭐ Unified public interface
 # ==================================================
-def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "memory") -> Dict:
+def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "saved_videos") -> Dict:
     if isinstance(record, dict):
         chunks = [record]
     elif isinstance(record, list):
