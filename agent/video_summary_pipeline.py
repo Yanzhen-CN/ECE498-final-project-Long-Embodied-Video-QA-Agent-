@@ -238,11 +238,14 @@ def summarize_video_for_cli(
 
     header = f"Video: {video_name} | Mode: {cfg.name} | run_id={run_id}"
     context = header + "\n" + "\n".join(chunk_summaries)
-
+    print("Run summary pipeline success, cache registering")
     # registry
-    register_analysis_run(
-        video_name=video_name,
-        mode=mode_key,  # Automatically handled
-    )
+    try:
+        register_analysis_run(
+            video_name=video_name,
+            mode=mode_key,  # Automatically handled
+        )
+    except:
+        print("register fail, but the summary finish, you can start QA now")
 
     return context
