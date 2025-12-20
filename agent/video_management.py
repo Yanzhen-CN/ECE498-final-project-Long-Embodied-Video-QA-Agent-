@@ -39,7 +39,7 @@ def register_analysis_run(
         {
             "video_name": video_name,
             "mode": mode,
-            "run_id": run_id,
+            "run_id": run_id,  # 自动生成 run_id，不需要传递
         }
     )
     _save_registry(reg)
