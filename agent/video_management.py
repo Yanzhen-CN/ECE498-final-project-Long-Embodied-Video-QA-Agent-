@@ -3,8 +3,9 @@ import time
 from pathlib import Path
 from typing import List, Dict, Optional
 
-# 分析注册表路径
-ANALYSIS_DIR = Path(__file__).resolve().parent / "data" / "analysis"
+# 统一存储位置：只使用 agent 中的 data 文件夹
+BASE_DIR = Path(__file__).resolve().parent / "data"
+ANALYSIS_DIR = BASE_DIR / "analysis"
 REGISTRY_PATH = ANALYSIS_DIR / "registry.json"
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -25,28 +26,22 @@ def _save_registry(reg: Dict[str, any]) -> None:
 
 # 注册视频分析记录
 def register_analysis_run(
-    *,
     video_name: str,
-    mode: str,
-    run_id: str,
-    manifest_path: str,
-    summary_file_path: Optional[str] = None,  # 存储总结文件路径
-    chunk_seconds: int,
-    keyframes_per_chunk: int,
+    mode: str
 ) -> None:
     """注册视频分析记录"""
     reg = _load_registry()
     reg.setdefault("runs", [])
+    
+    # 为每个视频分析生成唯一的 run_id
+    run_id = f"{video_name}_{mode}_{int(time.time())}"
+
     reg["runs"].append(
         {
             "ts": int(time.time()),
             "video_name": video_name,
             "mode": mode,
             "run_id": run_id,
-            "manifest_path": manifest_path,
-            "summary_file_path": summary_file_path,  # 保存总结文件路径
-            "chunk_seconds": chunk_seconds,
-            "keyframes_per_chunk": keyframes_per_chunk,
         }
     )
     _save_registry(reg)
