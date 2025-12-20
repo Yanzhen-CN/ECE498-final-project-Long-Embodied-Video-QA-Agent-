@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from data.video_interface import slice_video
 from memory.memory_interface import memory_ingest
 from model.model_interface import InferConfig, init_model, model_interface
-from video_management import register_analysis_run
+from agent.video_management import register_analysis_run
 
 # =========================
 # Types
