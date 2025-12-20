@@ -22,24 +22,35 @@ def _save_registry(reg: Dict[str, any]) -> None:
 
 # 注册视频分析记录
 def register_analysis_run(video_name: str, mode: str, run_id: str = None) -> None:
-    """注册视频分析记录"""
     reg = _load_registry()
-    
+
     video_name = Path(video_name).stem
-    # 简化的 run_id 格式：video_name_mode，去掉 .mp4 后缀
+    mode = (mode or "").strip().lower()
+
     if not run_id:
-        run_id = f"{video_name}__{mode}"  # run_id 为 video_name 和 mode 的组合
+        run_id = f"{video_name}__{mode}"
         print("create run_id: video_name + __ + mode")
+
     print(f"register {run_id}")
-    # 追加新记录到现有的 runs 列表中
-    reg["runs"].append(
+
+    runs = reg.get("runs", [])
+
+    # ✅ 关键：去掉所有同 run_id 的旧记录（不管有几条重复）
+    runs = [r for r in runs if r.get("run_id") != run_id]
+
+    # ✅ 再写入最新的一条
+    runs.append(
         {
             "video_name": video_name,
             "mode": mode,
-            "run_id": run_id,  # 自动生成 run_id
+            "run_id": run_id,
         }
     )
+
+    reg["runs"] = runs
     _save_registry(reg)
+
+
 
 # 列出所有已分析的记录
 def list_analysis_runs() -> List[Dict[str, any]]:

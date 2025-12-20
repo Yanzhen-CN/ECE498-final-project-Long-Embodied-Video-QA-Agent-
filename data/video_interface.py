@@ -44,7 +44,7 @@ def slice_video(
     data_root_p = Path(data_root)
 
     base = data_root_p / "processed_videos" / vid
-    keyframes_dir = base / "keyframes" / vid
+    keyframes_dir = base / "keyframes"
     manifests_dir = base / "manifests"
     metadata_dir = base / "metadata"
 
@@ -119,7 +119,7 @@ def slice_video(
             if not save_frame_at_time(t, img_path):
                 continue
 
-            rel_img = f"{data_root_p.name}/keyframes/{vid}/chunk_{ci:03d}/{img_name}"
+            rel_img = f"{data_root_p.name}/processed_videos/{vid}/keyframes/chunk_{ci:03d}/{img_name}"
             rel_img = rel_img.replace("\\", "/")
             chunk_images.append(rel_img)
 
