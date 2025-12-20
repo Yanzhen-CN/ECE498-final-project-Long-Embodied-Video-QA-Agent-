@@ -46,19 +46,16 @@ MODES: Dict[str, ModeConfig] = {
         name="Fast",
         slice_cfg=SliceConfig(chunk_seconds=60),
         infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
-        two_pass=False,
     ),
     "standard": ModeConfig(
         name="Standard",
         slice_cfg=SliceConfig(chunk_seconds=30),
         infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-        two_pass=True,
     ),
     "detailed": ModeConfig(
         name="Detailed",
         slice_cfg=SliceConfig(chunk_seconds=15),
         infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-        two_pass=True,
     ),
 }
 

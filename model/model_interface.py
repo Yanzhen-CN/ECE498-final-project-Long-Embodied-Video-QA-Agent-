@@ -74,7 +74,7 @@ def init_model(
         return
 
     kwargs = dict(
-        dtype=dtype,              # ✅ DO NOT use "dtype" here
+        torch_dtype=dtype,
         low_cpu_mem_usage=True,
         trust_remote_code=True,
         use_flash_attn=use_flash_attn,
