@@ -60,7 +60,7 @@ def init_model(
     dtype: torch.dtype = torch.bfloat16,
     use_flash_attn: bool = False,
     local_files_only: bool = False,
-    device_map: Optional[str] = "auto",
+    device_map: Optional[str] = None,
 ) -> None:
     """
     Load model once. Weights/tokenizer cached under model/hf_cache/.
