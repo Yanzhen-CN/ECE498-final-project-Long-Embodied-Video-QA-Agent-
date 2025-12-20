@@ -49,7 +49,7 @@ def slice_video(
     metadata_dir = base / "metadata"
 
     manifest_path = manifests_dir / f"{vid}.json"
-    metadata_path = metadata_dir / f"{vid}.csv"
+    csv_path = metadata_dir / f"{vid}.csv"
 
     if overwrite:
         base = data_root_p / "processed_videos" / vid
@@ -57,7 +57,7 @@ def slice_video(
             shutil.rmtree(base, ignore_errors=True)
         _ensure_dir(keyframes_dir)
         _ensure_dir(manifest_path.parent)
-        _ensure_dir(metadata_path.parent)
+        _ensure_dir(csv_path.parent)
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
