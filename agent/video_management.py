@@ -2,8 +2,7 @@ import json
 from pathlib import Path
 from typing import List, Dict
 
-# 统一存储位置：只使用 agent 中的 data 文件夹
-BASE_DIR = Path(__file__).resolve().parent / "data"
+BASE_DIR = Path(__file__).resolve().parent
 REGISTRY_PATH = BASE_DIR / "registry.json"
 
 # 读取注册表
