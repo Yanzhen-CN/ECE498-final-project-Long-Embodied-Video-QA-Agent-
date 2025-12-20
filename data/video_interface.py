@@ -25,8 +25,8 @@ def slice_video(
     overwrite: bool = True,
 ) -> Tuple[Path, Dict[str, Any]]:
     """
-    Slice a long video into chunk keyframes and produce:
-      - manifest JSON (chunk->images)
+    Slice a long video into chunk skeyframes and produce:
+      - manifest JSON (chunk->image)
       - metadata CSV (frame-level index)
 
     IMPORTANT:
@@ -41,31 +41,23 @@ def slice_video(
         raise FileNotFoundError(f"Video not found: {video_path}")
 
     vid = video_id or video_path.stem
-
     data_root_p = Path(data_root)
-    manifests_dir = data_root_p / "manifests"
-    metadata_dir = data_root_p / "metadata"
-    keyframes_root = data_root_p / "keyframes" / vid
+
+    base = data_root_p / "processed_videos" / vid
+    keyframes_dir = base / "keyframes" / vid
+    manifests_dir = base / "manifests"
+    metadata_dir = base / "metadata"
 
     manifest_path = manifests_dir / f"{vid}.json"
     csv_path = metadata_dir / f"{vid}.csv"
 
     if overwrite:
-        if keyframes_root.exists():
-            shutil.rmtree(keyframes_root)
-        if manifest_path.exists():
-            manifest_path.unlink()
-        if csv_path.exists():
-            csv_path.unlink()
-    else:
-        if keyframes_root.exists() or manifest_path.exists() or csv_path.exists():
-            raise FileExistsError(
-                f"Outputs for video_id='{vid}' already exist. Set overwrite=True to replace."
-            )
-
-    _ensure_dir(manifests_dir)
-    _ensure_dir(metadata_dir)
-    _ensure_dir(keyframes_root)
+        base = data_root_p / "processed_videos" / vid
+        if base.exists():
+            shutil.rmtree(base, ignore_errors=True)
+        _ensure_dir(keyframes_dir)
+        _ensure_dir(manifest_path.parent)
+        _ensure_dir(metadata_path.parent)
 
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
@@ -149,3 +141,32 @@ def slice_video(
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
     return manifest_path, manifest
+
+def clean_processed_video(
+    video_id: str,
+    *,
+    data_root: str = "data",
+    dry_run: bool = False,
+) -> bool:
+    """
+    Delete processed video artifacts under:
+
+      data/processed_videos/<video_id>/
+
+    Returns:
+        True  -> folder existed (and deleted if not dry_run)
+        False -> folder did not exist
+    """
+    base_dir = Path(data_root) / "processed_videos" / video_id
+
+    if not base_dir.exists():
+        print(f"[Clean] Not found: {base_dir}")
+        return False
+
+    if dry_run:
+        print(f"[Dry-run] Would delete: {base_dir}")
+        return True
+
+    shutil.rmtree(base_dir, ignore_errors=True)
+    print(f"[Clean] Deleted: {base_dir}")
+    return True
