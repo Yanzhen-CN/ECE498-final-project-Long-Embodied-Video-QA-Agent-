@@ -9,11 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from agent.video_management import (
-    MODES,
-    list_analysis_runs
-)
-from agent.video_summary_pipeline import summarize_video_for_cli
+from agent.video_management import list_analysis_runs
+from agent.video_summary_pipeline import MODES,summarize_video_for_cli
 from model.model_interface import init_model, is_model_loaded
 
 
