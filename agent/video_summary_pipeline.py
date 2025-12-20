@@ -33,7 +33,6 @@ class ModeConfig:
     name: str
     slice_cfg: SliceConfig
     infer_cfg: InferConfig
-    two_pass: bool
 
 
 # =========================
