@@ -26,10 +26,8 @@ def register_analysis_run(video_name: str, mode: str) -> None:
     """注册视频分析记录"""
     reg = _load_registry()
     
-    video_name = Path(video_name).stem
-
     # 简化的 run_id 格式：video_name_mode，去掉 .mp4 后缀
-    run_id = f"{video_name}_{mode}"  # run_id 为 video_name 和 mode 的组合
+    run_id = f"{video_name}__{mode}"  # run_id 为 video_name 和 mode 的组合
     
     # 追加新记录到现有的 runs 列表中
     reg["runs"].append(

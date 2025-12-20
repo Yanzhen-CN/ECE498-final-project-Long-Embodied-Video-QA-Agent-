@@ -324,6 +324,7 @@ def run_free_mode(store: VideoStore) -> None:
             name = _safe_input("Enter video name to analyze (0 back, -1 exit): ").strip()
             if not name.endswith(".mp4"):
                 name += ".mp4"
+                print(name)
             if _is_exit(name):
                 raise SystemExit(0)
             if name == "0":
