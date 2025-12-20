@@ -83,6 +83,8 @@ class VideoStore:
 
     def get_path_by_name(self, name: str) -> Optional[Path]:
         p = self.dir_path / name
+        if not name.endswith(".mp4"):
+            name += ".mp4"
         if p.exists() and p.is_file() and p.suffix.lower() == ".mp4":
             return p
         return None
