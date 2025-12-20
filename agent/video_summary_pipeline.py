@@ -242,11 +242,7 @@ def summarize_video_for_cli(
     # registry
     register_analysis_run(
         video_name=video_name,
-        mode=mode_key,
-        run_id=run_id,
-        manifest_path=str(manifest_path),
-        chunk_seconds=cfg.slice_cfg.chunk_seconds,
-        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
+        mode=mode_key,  # Automatically handled
     )
 
     return context
