@@ -1,7 +1,6 @@
 import json
-import time
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict
 
 # 统一存储位置：只使用 agent 中的 data 文件夹
 BASE_DIR = Path(__file__).resolve().parent / "data"
@@ -13,11 +12,11 @@ ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
 def _load_registry() -> Dict[str, any]:
     """加载分析注册表"""
     if not REGISTRY_PATH.exists():
-        return {"version": "1.0", "runs": []}
+        return {"runs": []}  # 直接返回空 runs 列表
     try:
         return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
     except Exception:
-        return {"version": "1.0", "runs": []}
+        return {"runs": []}  # 若读取失败，也返回空列表
 
 # 保存注册表
 def _save_registry(reg: Dict[str, any]) -> None:
@@ -31,14 +30,13 @@ def register_analysis_run(
 ) -> None:
     """注册视频分析记录"""
     reg = _load_registry()
-    reg.setdefault("runs", [])
-    
-    # 为每个视频分析生成唯一的 run_id
-    run_id = f"{video_name}_{mode}_{int(time.time())}"
+    reg["runs"] = []  # 每次覆盖已有记录
+
+    # 简化的 run_id 格式：video_name_mode
+    run_id = f"{video_name}_{mode}"
 
     reg["runs"].append(
         {
-            "ts": int(time.time()),
             "video_name": video_name,
             "mode": mode,
             "run_id": run_id,
@@ -68,5 +66,5 @@ def delete_analysis_run(run_id: str) -> bool:
 def clear_all_analysis_runs() -> None:
     """删除所有的分析记录"""
     reg = _load_registry()
-    reg["runs"] = []
+    reg["runs"] = []  # 清空所有记录
     _save_registry(reg)
