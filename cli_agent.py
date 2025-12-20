@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from agent.video_management import list_analysis_runs
+from agent.address_questions_evaluation import run_qa_system
 from agent.video_summary_pipeline import MODES,summarize_video_for_cli
 from model.model_interface import init_model, is_model_loaded
 
@@ -165,11 +166,16 @@ def qa_menu() -> str:
 # Hooks (placeholder)
 # -----------------------------
 def answer_question(context: str, question: str) -> str:
-    return (
-        "[TODO] Replace answer_question() with your QA module.\n"
-        f"Question: {question}\n"
-        f"Context (summary, truncated): {context[:600]}..."
+
+    #TODO: integrate your existing model inference function here(model_inference_fn)
+
+    response = run_qa_system(
+        mode="interactive",
+        model_inference_fn=model_inference_fn,
+        context=context,
+        question=question
     )
+    return response
 
 
 # -----------------------------
