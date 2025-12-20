@@ -15,7 +15,7 @@ def slice_video(
     video_id: Optional[str] = None,
     data_root: str = "data",
     chunk_seconds: int = 30,
-    keyframes_per_chunk: int = 8,
+    keyframes_per_chunk: int = 6,
     jpeg_quality: int = 90,
     overwrite: bool = True,
 ) -> Tuple[Path, Dict[str, Any]]:

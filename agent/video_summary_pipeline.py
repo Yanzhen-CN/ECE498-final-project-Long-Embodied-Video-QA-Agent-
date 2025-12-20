@@ -1,14 +1,20 @@
+# agent/video_summary_pipeline.py
 from __future__ import annotations
 
+import gc
 import json
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
+import torch
 
 from data.video_interface import slice_video
 from memory.memory_interface import memory_ingest
-
 from model.model_interface import init_model, model_interface, InferConfig
+
+from agent.analysis_store import has_summary, load_summary, save_summary, append_run
 
 
 # =========================
@@ -24,43 +30,42 @@ class ChunkSpec:
 
 
 @dataclass(frozen=True)
-class SliceConfig:
-    chunk_seconds: int
-
-
-@dataclass(frozen=True)
 class ModeConfig:
     name: str
-    slice_cfg: SliceConfig
+    chunk_seconds: int
+    keyframes_per_chunk: int  # fixed to 6 in all modes (your requirement)
     infer_cfg: InferConfig
     two_pass: bool
 
 
 # =========================
-# Analysis modes (3 presets)
+# Modes (keyframes_per_chunk fixed = 6; mode mainly changes chunk_seconds)
 # =========================
 KEYFRAMES_PER_CHUNK = 6
-MODES = {
-  "fast": ModeConfig(
-      name="Fast",
-      slice_cfg=SliceConfig(chunk_seconds=60),
-      infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
-      two_pass=False,
-  ),
-  "standard": ModeConfig(
-      name="Standard",
-      slice_cfg=SliceConfig(chunk_seconds=30),
-      infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-      two_pass=True,
-  ),
-  "detailed": ModeConfig(
-      name="Detailed",
-      slice_cfg=SliceConfig(chunk_seconds=15),
-      infer_cfg=InferConfig(max_new_tokens=256, max_num=2, use_thumbnail=False),
-      two_pass=True,
-  ),
-}
 
+MODES: Dict[str, ModeConfig] = {
+    "fast": ModeConfig(
+        name="Fast",
+        chunk_seconds=60,
+        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
+        infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
+        two_pass=False,
+    ),
+    "standard": ModeConfig(
+        name="Standard",
+        chunk_seconds=30,
+        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
+        infer_cfg=InferConfig(max_new_tokens=192, max_num=2, use_thumbnail=False),
+        two_pass=True,  # 3+3
+    ),
+    "detailed": ModeConfig(
+        name="Detailed",
+        chunk_seconds=15,
+        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
+        infer_cfg=InferConfig(max_new_tokens=192, max_num=2, use_thumbnail=False),
+        two_pass=True,  # 3+3
+    ),
+}
 
 
 # =========================
@@ -90,7 +95,6 @@ def read_chunks_from_manifest(manifest: Dict[str, Any]) -> List[ChunkSpec]:
 
 def extract_outer_json(text: str) -> Optional[str]:
     s = text.strip()
-
     if s.startswith("```"):
         if s.startswith("```json"):
             s = s[len("```json") :].strip()
@@ -139,7 +143,6 @@ def normalize_record(
     manifest_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
     js = extract_outer_json(raw_text)
-
     if js is None:
         rec: Dict[str, Any] = {"parse_error": True, "raw_model_output": raw_text}
     else:
@@ -149,16 +152,19 @@ def normalize_record(
         except Exception:
             rec = {"parse_error": True, "raw_model_output": raw_text}
 
+    # authoritative fields
     rec["video_id"] = chunk.video_id
     rec["chunk_id"] = chunk.chunk_id
     rec["t_start"] = chunk.t_start
     rec["t_end"] = chunk.t_end
 
+    # defaults
     rec.setdefault("summary", "")
     rec.setdefault("entities", [])
     rec.setdefault("events", [])
     rec.setdefault("state_update", {})
 
+    # evidence frames
     rec["evidence_frames"] = chunk.image_paths[: max(0, evidence_per_chunk)]
 
     if manifest_path is not None:
@@ -169,60 +175,93 @@ def normalize_record(
 
 def _two_pass_infer(frames: List[str], base_prompt: str, infer_cfg: InferConfig) -> str:
     """
-    Keep chunk fixed (8 frames), but reduce peak VRAM by splitting inference 4+4.
-    Pass1 returns plain text. Pass2 returns final JSON for the whole chunk.
+    Reduce peak VRAM: split frames into 3+3 (since you fixed 6 per chunk).
+    Pass1: first 3 frames -> plain text
+    Pass2: last 3 frames + partial -> FINAL JSON
     """
-    if len(frames) <= 4:
+    if len(frames) <= 3:
         return model_interface(image_paths=frames, prompt=base_prompt, cfg=infer_cfg)
 
-    mid = len(frames) // 2
-    first = frames[:mid]
-    second = frames[mid:]
+    first = frames[:3]
+    second = frames[3:]
 
-    prompt1 = base_prompt + "\n\nYou only see the FIRST half frames. Summarize briefly in plain text (no JSON)."
+    prompt1 = base_prompt + "\n\nYou only see the FIRST part of frames. Summarize briefly in plain text (no JSON)."
     partial = model_interface(image_paths=first, prompt=prompt1, cfg=infer_cfg)
 
     prompt2 = (
         base_prompt
-        + "\n\nYou only see the SECOND half frames.\n"
-        + "First-half summary (may be imperfect):\n"
+        + "\n\nYou only see the SECOND part of frames.\n"
+        + "First-part summary (may be imperfect):\n"
         + partial.strip()
         + "\n\nNow output FINAL JSON for the whole chunk."
     )
     return model_interface(image_paths=second, prompt=prompt2, cfg=infer_cfg)
 
 
+def _post_infer_cleanup() -> None:
+    # Helps with fragmentation / reserved memory staying high
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+
 # =========================
-# Public API for CLI
+# Public API
 # =========================
 def summarize_video_for_cli(
     video_path: str | Path,
     *,
     mode: str = "standard",
+    project_root: str | Path = ".",
     local_files_only: bool = False,
     evidence_per_chunk: int = 2,
     use_prev_summary: bool = True,
+    overwrite_slice: bool = True,
+    reuse_if_cached: bool = True,
 ) -> str:
+    """
+    - Produces per-chunk summaries + memory_ingest
+    - Writes a cached full summary to data/analysis/<video_id>/summary_<mode>.txt
+    - Appends a run record to data/analysis/<video_id>/runs.jsonl
+
+    reuse_if_cached=True:
+      if cached summary exists for (video_id, mode), return it immediately.
+      (no slicing, no model call)
+    """
     mode_key = (mode or "standard").strip().lower()
     if mode_key not in MODES:
         mode_key = "standard"
+    mc = MODES[mode_key]
 
-    cfg = MODES[mode_key]
+    project_root_p = Path(project_root).resolve()
+    video_path_p = Path(video_path)
+    vid = video_path_p.stem
 
-    # load model once (cache reuse)
+    # cache hit
+    if reuse_if_cached and has_summary(project_root_p, vid, mode_key):
+        cached = load_summary(project_root_p, vid, mode_key)
+        if cached is not None:
+            return cached
+
+    # ensure model loaded once per process
     init_model(local_files_only=local_files_only)
 
+    t0 = datetime.now(timezone.utc)
+
     manifest_path, manifest_json = slice_video(
-        str(video_path),
-        chunk_seconds=cfg.slice_cfg.chunk_seconds,
-        keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
-        overwrite=True,
+        str(video_path_p),
+        chunk_seconds=mc.chunk_seconds,
+        keyframes_per_chunk=mc.keyframes_per_chunk,  # fixed 6
+        overwrite=overwrite_slice,
     )
     manifest_path = Path(manifest_path)
 
     chunks = read_chunks_from_manifest(manifest_json)
     if not chunks:
-        return f"[WARN] No chunks found in manifest. video='{Path(video_path).name}'"
+        out = f"[WARN] No chunks found in manifest. video='{video_path_p.name}'"
+        # still cache the warning (so CLI shows “analyzed” but it's just a warn)
+        save_summary(project_root_p, vid, mode_key, out)
+        return out
 
     prev_summary = ""
     chunk_summaries: List[str] = []
@@ -233,10 +272,10 @@ def summarize_video_for_cli(
 
         prompt = build_prompt(chunk, prev_summary if use_prev_summary else "")
 
-        if cfg.two_pass:
-            raw_text = _two_pass_infer(chunk.image_paths, prompt, cfg.infer_cfg)
+        if mc.two_pass:
+            raw_text = _two_pass_infer(chunk.image_paths, prompt, mc.infer_cfg)
         else:
-            raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt, cfg=cfg.infer_cfg)
+            raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt, cfg=mc.infer_cfg)
 
         record = normalize_record(
             raw_text,
@@ -244,7 +283,6 @@ def summarize_video_for_cli(
             evidence_per_chunk=evidence_per_chunk,
             manifest_path=manifest_path,
         )
-
         memory_ingest(record)
 
         s = (record.get("summary") or "").strip()
@@ -254,8 +292,48 @@ def summarize_video_for_cli(
             if use_prev_summary:
                 prev_summary = s
 
-    if not chunk_summaries:
-        return f"[WARN] No summaries produced. video='{Path(video_path).name}'"
+        _post_infer_cleanup()
 
-    header = f"Video: {Path(video_path).name} | Mode: {cfg.name} | video_id={chunks[0].video_id}"
-    return header + "\n" + "\n".join(chunk_summaries)
+    if not chunk_summaries:
+        out = f"[WARN] No summaries produced. video='{video_path_p.name}'"
+        save_summary(project_root_p, vid, mode_key, out)
+        return out
+
+    header = (
+        f"Video: {video_path_p.name} | Mode: {mc.name} | "
+        f"chunk_seconds={mc.chunk_seconds} | frames_per_chunk={mc.keyframes_per_chunk} | video_id={chunks[0].video_id}"
+    )
+    out = header + "\n" + "\n".join(chunk_summaries)
+
+    # save cache
+    save_summary(project_root_p, vid, mode_key, out)
+
+    # append run record
+    t1 = datetime.now(timezone.utc)
+    run_rec = {
+        "video_id": vid,
+        "video_path": str(video_path_p).replace("\\", "/"),
+        "mode": mode_key,
+        "slice": {
+            "chunk_seconds": mc.chunk_seconds,
+            "keyframes_per_chunk": mc.keyframes_per_chunk,
+        },
+        "infer": {
+            "max_new_tokens": int(mc.infer_cfg.max_new_tokens),
+            "max_num": int(mc.infer_cfg.max_num),
+            "use_thumbnail": bool(mc.infer_cfg.use_thumbnail),
+            "two_pass": bool(mc.two_pass),
+        },
+        "time": {
+            "started_at": t0.isoformat(),
+            "ended_at": t1.isoformat(),
+        },
+        "artifacts": {
+            "manifest_path": str(manifest_path).replace("\\", "/"),
+            "summary_txt": f"data/analysis/{vid}/summary_{mode_key}.txt",
+        },
+        "status": "ok",
+    }
+    append_run(project_root_p, vid, run_rec)
+
+    return out
