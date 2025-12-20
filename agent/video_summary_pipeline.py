@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from data.video_interface import slice_video
 from memory.memory_interface import memory_ingest
 from model.model_interface import InferConfig, init_model, model_interface
-
+from video_management import register_analysis_run
 
 # =========================
 # Types
@@ -70,59 +70,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 ANALYSIS_DIR = ROOT_DIR / "data" / "analysis"
 REGISTRY_PATH = ANALYSIS_DIR / "registry.json"
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
-
-
-def _load_registry() -> Dict[str, Any]:
-    if not REGISTRY_PATH.exists():
-        return {"version": "1.0", "runs": []}
-    try:
-        return json.loads(REGISTRY_PATH.read_text(encoding="utf-8"))
-    except Exception:
-        return {"version": "1.0", "runs": []}
-
-
-def _save_registry(reg: Dict[str, Any]) -> None:
-    REGISTRY_PATH.write_text(json.dumps(reg, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def register_analysis_run(
-    *,
-    video_name: str,
-    mode: str,
-    run_id: str,
-    manifest_path: str,
-    chunk_seconds: int,
-    keyframes_per_chunk: int,
-) -> None:
-    reg = _load_registry()
-    reg.setdefault("runs", [])
-    reg["runs"].append(
-        {
-            "ts": int(time.time()),
-            "video_name": video_name,
-            "mode": mode,
-            "run_id": run_id,
-            "manifest_path": manifest_path,
-            "chunk_seconds": chunk_seconds,
-            "keyframes_per_chunk": keyframes_per_chunk,
-        }
-    )
-    _save_registry(reg)
-
-
-def list_analysis_runs() -> List[Dict[str, Any]]:
-    reg = _load_registry()
-    runs = reg.get("runs", [])
-    if not isinstance(runs, list):
-        return []
-    return runs
-
-
-def analysis_summary_path(run_id: str) -> Path:
-    d = ANALYSIS_DIR / run_id
-    d.mkdir(parents=True, exist_ok=True)
-    return d / "summary.txt"
-
 
 # =========================
 # Helpers
@@ -296,8 +243,7 @@ def summarize_video_for_cli(
     header = f"Video: {video_name} | Mode: {cfg.name} | run_id={run_id}"
     context = header + "\n" + "\n".join(chunk_summaries)
 
-    # write summary.txt + registry
-    analysis_summary_path(run_id).write_text(context, encoding="utf-8")
+    # registry
     register_analysis_run(
         video_name=video_name,
         mode=mode_key,
