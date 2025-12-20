@@ -151,9 +151,9 @@ def analysis_mode_menu() -> str:
     print("\n========== Analysis Mode ==========")
     print("(-1) Exit")
     print("( 0) Back")
-    print("( 1) Fast     (chunk=60s, frames=6, single-pass)")
-    print("( 2) Standard (chunk=30s, frames=6, TWO-pass 3+3)")
-    print("( 3) Detailed (chunk=15s, frames=6, TWO-pass 3+3)")
+    print("( 1) Fast     (chunk=45s, frames=6)")
+    print("( 2) Standard (chunk=30s, frames=6)")
+    print("( 3) Detailed (chunk=15s, frames=6)")
     return _safe_input("Select: ").strip()
 
 
