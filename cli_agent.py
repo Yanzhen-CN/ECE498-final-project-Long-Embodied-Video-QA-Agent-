@@ -3,18 +3,23 @@
 
 from __future__ import annotations
 
+import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from agent.video_summary_pipeline import summarize_video_for_cli, MODES
-from agent.analysis_store import has_summary, load_summary
+from agent.video_summary_pipeline import (
+    MODES,
+    list_analysis_runs,
+    summarize_video_for_cli,
+    analysis_summary_path,
+)
 from model.model_interface import init_model, is_model_loaded
 
 
 # -----------------------------
-# Paths / Config
+# Configuration
 # -----------------------------
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR
@@ -22,15 +27,14 @@ UPLOAD_DIR = ROOT_DIR / "data" / "videos"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 PRELOAD_MODEL_ON_START = True
-CACHE_ONLY = True              # True: offline/cache-only
+CACHE_ONLY = True  # offline/cache-only
 MODEL_NAME = "OpenGVLab/InternVL3_5-4B"
 
 
-# -----------------------------
-# State
-# -----------------------------
-active_video_name: Optional[str] = None  # e.g., "xxx.mp4"
-active_mode: str = "standard"            # fast/standard/detailed
+# If CACHE_ONLY, force offline (prevents accidental remote-code download)
+if CACHE_ONLY:
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
 
 # -----------------------------
@@ -126,43 +130,30 @@ class VideoStore:
 def main_menu() -> str:
     print("\n========== CLI Agent ==========")
     print("(-1) Exit")
-    print("( 1) Video manager (upload/list/set active)")
-    print("( 2) Analyze / QA (manual)")
-    print("( 3) Test demo (auto run all modes)")
+    print("( 1) Test mode")
+    print("( 2) Free mode")
     return _safe_input("Select: ").strip()
 
 
-def video_menu() -> str:
-    global active_video_name
-    print("\n========== Video Manager ==========")
-    print(f"Active video: {active_video_name if active_video_name else '(none)'}")
+def free_menu() -> str:
+    print("\n========== Free Mode ==========")
     print("(-1) Exit")
     print("( 0) Back")
-    print("( 1) List uploaded videos")
-    print("( 2) Upload video (.mp4)")
-    print("( 3) Set active video")
+    print("( 1) Upload video (.mp4)")
+    print("( 2) List uploaded videos")
+    print("( 3) Analyze a video (run summary pipeline)")
+    print("( 4) List analyzed runs (video + mode)")
+    print("( 5) QA on analyzed run")
     return _safe_input("Select: ").strip()
 
 
-def manual_menu() -> str:
-    global active_video_name, active_mode
-    print("\n========== Manual Analyze / QA ==========")
-    print(f"Active video: {active_video_name if active_video_name else '(none)'} | mode={active_mode}")
-    print("(-1) Exit")
-    print("( 0) Back")
-    print("( 1) Analyze now (choose mode)")
-    print("( 2) QA with cached summary (choose mode)")
-    print("( 3) Switch active video")
-    return _safe_input("Select: ").strip()
-
-
-def mode_menu() -> str:
+def analysis_mode_menu() -> str:
     print("\n========== Analysis Mode ==========")
     print("(-1) Exit")
     print("( 0) Back")
-    print("( 1) fast     (chunk=60s, frames_per_chunk=6)")
-    print("( 2) standard (chunk=30s, frames_per_chunk=6, two-pass 3+3)")
-    print("( 3) detailed (chunk=15s, frames_per_chunk=6, two-pass 3+3)")
+    print("( 1) Fast     (chunk=60s, frames=6, single-pass)")
+    print("( 2) Standard (chunk=30s, frames=6, TWO-pass 3+3)")
+    print("( 3) Detailed (chunk=15s, frames=6, TWO-pass 3+3)")
     return _safe_input("Select: ").strip()
 
 
@@ -175,10 +166,9 @@ def qa_menu() -> str:
 
 
 # -----------------------------
-# Hooks
+# Hooks (placeholder)
 # -----------------------------
 def answer_question(context: str, question: str) -> str:
-    # TODO: replace with your real QA module (memory retrieval etc.)
     return (
         "[TODO] Replace answer_question() with your QA module.\n"
         f"Question: {question}\n"
@@ -191,7 +181,7 @@ def answer_question(context: str, question: str) -> str:
 # -----------------------------
 def _pick_mode() -> Optional[str]:
     while True:
-        c = mode_menu()
+        c = analysis_mode_menu()
         if _is_exit(c):
             raise SystemExit(0)
         if c == "0":
@@ -205,99 +195,54 @@ def _pick_mode() -> Optional[str]:
         print("Invalid option. Please choose 0/1/2/3/-1.")
 
 
-def _pick_video_interactively(store: VideoStore) -> Optional[str]:
+def _print_uploaded(store: VideoStore) -> None:
     names = store.list_names()
     if not names:
-        print("No uploaded videos yet. Please upload one first.")
-        return None
-
+        print("No uploaded videos yet.")
+        return
     print("\nUploaded videos:")
     for i, n in enumerate(names):
         print(f"  [{i}] {n}")
 
-    name = _safe_input("Enter video name exactly (0 back, -1 exit): ").strip()
-    if _is_exit(name):
-        raise SystemExit(0)
-    if name == "0":
-        return None
-    if store.get_path_by_name(name) is None:
-        print("Video not found. Please check the name.")
-        return None
-    return name
+
+def _print_analyzed() -> list[dict]:
+    runs = list_analysis_runs()
+    if not runs:
+        print("No analyzed runs yet.")
+        return []
+    print("\nAnalyzed runs:")
+    for i, r in enumerate(runs):
+        print(f"  [{i}] {r.get('video_name')} | mode={r.get('mode')} | run_id={r.get('run_id')}")
+    return runs
 
 
-def _print_cache_status(video_id: str) -> None:
-    print("\n[Cache] Summary availability:")
-    for k, mc in MODES.items():
-        ok = has_summary(ROOT_DIR, video_id, k)
-        print(f"  - {k:<8} ({mc.name:<8}): {'YES' if ok else 'NO'}")
+def _run_analysis(video_path: Path, mode: str) -> Optional[str]:
+    print(f"\nRunning summary pipeline... mode='{MODES[mode].name}'")
+    try:
+        context = summarize_video_for_cli(
+            str(video_path),
+            mode=mode,
+            local_files_only=CACHE_ONLY,
+        )
+        print("[OK] Analysis done. Summary saved.")
+        return context
+    except RuntimeError as e:
+        msg = str(e)
+        print(f"[ERR] Summary pipeline failed: {msg}")
+        if "CUDA out of memory" in msg:
+            print("[Hint] OOM: try mode=Fast first (or reduce max_new_tokens / max_num).")
+        return None
+    except Exception as e:
+        print(f"[ERR] Summary pipeline failed: {e}")
+        return None
 
 
 # -----------------------------
 # Flows
 # -----------------------------
-def run_video_manager(store: VideoStore) -> None:
-    global active_video_name
-
-    while True:
-        c = video_menu()
-        if _is_exit(c):
-            raise SystemExit(0)
-        if c == "0":
-            return
-
-        if c == "1":
-            names = store.list_names()
-            if not names:
-                print("No uploaded videos yet.")
-            else:
-                print("\nUploaded videos:")
-                for i, n in enumerate(names):
-                    print(f"  [{i}] {n}")
-            continue
-
-        if c == "2":
-            src = _safe_input("Enter video file path (.mp4) (0 back, -1 exit): ").strip()
-            if _is_exit(src):
-                raise SystemExit(0)
-            if src == "0":
-                continue
-
-            new_name = _safe_input("Save as (Enter keep original) (0 back, -1 exit): ").strip()
-            if _is_exit(new_name):
-                raise SystemExit(0)
-            if new_name == "0":
-                continue
-            if new_name == "":
-                new_name = None
-
-            src_p = Path(src).expanduser().resolve()
-            dst_p = store._dst_path(src_p, new_name)
-            if dst_p.exists():
-                ans = _safe_input(f"'{dst_p.name}' exists. Overwrite? (y/N): ").strip().lower()
-                if ans != "y":
-                    print("Upload cancelled.")
-                    continue
-                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=True)
-            else:
-                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=False)
-
-            print(msg)
-            if ok and active_video_name is None:
-                # auto-set active for first upload
-                active_video_name = dst_p.name
-                print(f"[Info] Active video set to: {active_video_name}")
-            continue
-
-        if c == "3":
-            picked = _pick_video_interactively(store)
-            if picked:
-                active_video_name = picked
-                print(f"[Info] Active video set to: {active_video_name}")
-                _print_cache_status(Path(active_video_name).stem)
-            continue
-
-        print("Invalid option. Please choose 0/1/2/3/-1.")
+def run_test_mode() -> None:
+    print("\n[Test mode] Placeholder (TODO): run preset video + 3 modes + compare QA quality.")
+    print("Returning to main menu...")
 
 
 def run_qa_loop(context: str) -> None:
@@ -308,127 +253,134 @@ def run_qa_loop(context: str) -> None:
         if c == "0":
             return
         if c == "1":
-            q = _safe_input("Your question (-1 exit): ").strip()
+            q = _safe_input("Your question (-1 to exit): ").strip()
             if _is_exit(q):
                 raise SystemExit(0)
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
             print("--------------------------")
-            continue
+        else:
+            print("Invalid option. Please choose 0/1/-1.")
 
-        print("Invalid option. Please choose 0/1/-1.")
 
-
-def run_manual(store: VideoStore) -> None:
-    global active_video_name, active_mode
-
+def run_free_mode(store: VideoStore) -> None:
     while True:
-        c = manual_menu()
-        if _is_exit(c):
+        choice = free_menu()
+        if _is_exit(choice):
             raise SystemExit(0)
-        if c == "0":
+        if choice == "0":
             return
 
-        if c == "3":
-            picked = _pick_video_interactively(store)
-            if picked:
-                active_video_name = picked
-                print(f"[Info] Active video set to: {active_video_name}")
-                _print_cache_status(Path(active_video_name).stem)
+        # (1) upload
+        if choice == "1":
+            src = _safe_input("Enter video file path (.mp4) (0 back, -1 exit): ").strip()
+            if _is_exit(src):
+                raise SystemExit(0)
+            if src == "0":
+                continue
+
+            new_name = _safe_input("Save as (Enter to keep original name) (0 back, -1 exit): ").strip()
+            if _is_exit(new_name):
+                raise SystemExit(0)
+            if new_name == "0":
+                continue
+            if new_name == "":
+                new_name = None
+
+            src_p = Path(src).expanduser().resolve()
+            dst_p = store._dst_path(src_p, new_name)
+            if dst_p.exists():
+                ans = _safe_input(f"'{dst_p.name}' already exists. Overwrite? (y/N): ").strip().lower()
+                if ans != "y":
+                    print("Upload cancelled (no overwrite).")
+                    continue
+                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=True)
+            else:
+                ok, msg = store.upload_from_path(src, dst_name=new_name, overwrite=False)
+
+            print(msg)
+            if not ok:
+                continue
+
+            # Optional: analyze immediately
+            ans2 = _safe_input("Analyze this video now? (y/N): ").strip().lower()
+            if ans2 == "y":
+                mode = _pick_mode()
+                if mode is None:
+                    continue
+                vp = store.get_path_by_name(dst_p.name)
+                if vp is None:
+                    print("[ERR] Uploaded video not found in store (unexpected).")
+                    continue
+                _run_analysis(vp, mode)
             continue
 
-        if active_video_name is None:
-            print("[Hint] No active video. Please set active video first.")
+        # (2) list uploaded
+        if choice == "2":
+            _print_uploaded(store)
             continue
 
-        vpath = store.get_path_by_name(active_video_name)
-        if vpath is None:
-            print("[ERR] Active video missing on disk. Please re-select.")
-            active_video_name = None
-            continue
-
-        if c == "1":
+        # (3) analyze a video
+        if choice == "3":
+            _print_uploaded(store)
+            name = _safe_input("Enter video name to analyze (0 back, -1 exit): ").strip()
+            if _is_exit(name):
+                raise SystemExit(0)
+            if name == "0":
+                continue
+            vp = store.get_path_by_name(name)
+            if vp is None:
+                print("Video not found. Please check the name.")
+                continue
             mode = _pick_mode()
             if mode is None:
                 continue
-            active_mode = mode
+            _run_analysis(vp, mode)
+            continue
 
-            print(f"\nRunning analysis... video='{active_video_name}', mode='{mode}'")
+        # (4) list analyzed runs
+        if choice == "4":
+            _print_analyzed()
+            continue
+
+        # (5) QA on analyzed run
+        if choice == "5":
+            runs = _print_analyzed()
+            if not runs:
+                continue
+            idx_s = _safe_input("Pick run index for QA (0 back, -1 exit): ").strip()
+            if _is_exit(idx_s):
+                raise SystemExit(0)
+            if idx_s == "0":
+                continue
             try:
-                out = summarize_video_for_cli(
-                    str(vpath),
-                    mode=mode,
-                    project_root=ROOT_DIR,
-                    local_files_only=CACHE_ONLY,
-                    overwrite_slice=True,
-                    reuse_if_cached=False,  # force re-run when user selects Analyze now
-                )
-                print("\n[OK] Analysis done. Cached summary saved.")
-                _print_cache_status(vpath.stem)
-                # optional: print result
-                print("\n----- Summary -----")
-                print(out)
-                print("-------------------")
-            except Exception as e:
-                print(f"[ERR] Analysis failed: {e}")
-            continue
-
-        if c == "2":
-            mode = _pick_mode()
-            if mode is None:
-                continue
-            active_mode = mode
-
-            vid = vpath.stem
-            ctx = load_summary(ROOT_DIR, vid, mode)
-            if ctx is None:
-                print(f"[Hint] No cached summary for mode='{mode}'. Run Analyze now first.")
-                _print_cache_status(vid)
+                idx = int(idx_s)
+                run = runs[idx]
+            except Exception:
+                print("Invalid index.")
                 continue
 
-            print(f"\n[OK] Using cached summary. Entering QA... video='{active_video_name}', mode='{mode}'")
-            run_qa_loop(ctx)
+            run_id = str(run.get("run_id", ""))
+            if not run_id:
+                print("[ERR] run_id missing in registry.")
+                continue
+
+            sp = analysis_summary_path(run_id)
+            if not sp.exists():
+                print(f"[ERR] summary.txt not found for run_id={run_id}.")
+                continue
+
+            context = sp.read_text(encoding="utf-8")
+            print(f"\n[OK] Loaded analyzed context: run_id={run_id}. Entering QA...")
+            run_qa_loop(context)
             continue
 
-        print("Invalid option. Please choose 0/1/2/3/-1.")
-
-
-def run_test_demo(store: VideoStore) -> None:
-    global active_video_name
-
-    print("\n========== Test Demo ==========")
-    picked = _pick_video_interactively(store)
-    if not picked:
-        return
-    active_video_name = picked
-
-    vpath = store.get_path_by_name(active_video_name)
-    assert vpath is not None
-
-    print(f"\n[Test] Running all modes for video='{active_video_name}' ...")
-    for mode in ["fast", "standard", "detailed"]:
-        print(f"\n--- Mode: {mode} ({MODES[mode].name}) ---")
-        try:
-            out = summarize_video_for_cli(
-                str(vpath),
-                mode=mode,
-                project_root=ROOT_DIR,
-                local_files_only=CACHE_ONLY,
-                overwrite_slice=True,
-                reuse_if_cached=False,  # demo wants fresh run
-            )
-            print(out)
-        except Exception as e:
-            print(f"[ERR] Mode '{mode}' failed: {e}")
-
-    print("\n[Test] Done. Cache status:")
-    _print_cache_status(vpath.stem)
+        print("Invalid option. Please choose 0/1/2/3/4/5/-1.")
 
 
 def main() -> None:
     store = VideoStore(UPLOAD_DIR)
-
     _preload_model_or_warn()
 
     while True:
@@ -436,13 +388,11 @@ def main() -> None:
         if _is_exit(c):
             break
         if c == "1":
-            run_video_manager(store)
+            run_test_mode()
         elif c == "2":
-            run_manual(store)
-        elif c == "3":
-            run_test_demo(store)
+            run_free_mode(store)
         else:
-            print("Invalid option. Please choose 1/2/3/-1.")
+            print("Invalid option. Please choose 1/2/-1.")
 
     print("Bye.")
 

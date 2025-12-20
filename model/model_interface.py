@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import gc
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, List, Optional, Tuple
@@ -38,15 +39,16 @@ def is_model_loaded() -> bool:
 @dataclass(frozen=True)
 class InferConfig:
     """
-    Keep inference knobs here (NOT in pipeline signature).
+    Inference knobs.
+    Keep VRAM low by default.
     """
     max_new_tokens: int = 256
     do_sample: bool = False
 
     # InternVL dynamic tiling controls
     input_size: int = 448
-    max_num: int = 2            # IMPORTANT: keep small to reduce VRAM peak
-    use_thumbnail: bool = False # IMPORTANT: avoid extra tile per image
+    max_num: int = 2            # keep small (VRAM)
+    use_thumbnail: bool = False # disable extra tile (VRAM)
 
     # Debug
     debug_tiles: bool = False
@@ -61,15 +63,18 @@ def init_model(
     device_map: Optional[str] = "auto",
 ) -> None:
     """
-    Load model once. Weights/tokenizer are cached under model/hf_cache/.
-    Set local_files_only=True to enforce offline/cache-only.
+    Load model once. Weights/tokenizer cached under model/hf_cache/.
+
+    IMPORTANT:
+      - For InternVL (trust_remote_code), pass torch_dtype=..., NOT dtype=...
+      - local_files_only=True enforces cache-only (offline).
     """
     global _BUNDLE
     if _BUNDLE is not None:
         return
 
     kwargs = dict(
-        dtype=dtype,
+        torch_dtype=dtype,              # ✅ DO NOT use "dtype" here
         low_cpu_mem_usage=True,
         trust_remote_code=True,
         use_flash_attn=use_flash_attn,
@@ -77,17 +82,13 @@ def init_model(
         local_files_only=local_files_only,
     )
 
-    # Optional multi-gpu (leave off by default; your environment had issues)
+    # Keep your existing behavior: accelerate device_map
     if device_map is not None:
-        offload_dir = HF_CACHE_DIR / "offload"
-        offload_dir.mkdir(parents=True, exist_ok=True)
         kwargs["device_map"] = device_map
-        kwargs["max_memory"] = {0: "22GiB", 1: "22GiB"}
-        kwargs["offload_folder"] = str(offload_dir)
 
     model = AutoModel.from_pretrained(model_name, **kwargs).eval()
 
-    # tokenizer: prefer fast, fallback to slow
+    # tokenizer: try fast then slow (both cached)
     try:
         tokenizer = AutoTokenizer.from_pretrained(
             model_name,
@@ -104,9 +105,6 @@ def init_model(
             cache_dir=str(HF_CACHE_DIR),
             local_files_only=local_files_only,
         )
-
-    if device_map is None and torch.cuda.is_available():
-        model = model.cuda()
 
     _BUNDLE = _Bundle(model=model, tokenizer=tokenizer)
 
@@ -233,17 +231,16 @@ def load_images(
     return pixel_values, npl
 
 
-# =========================
-# Prompt helpers
-# =========================
 def _prefix_images(n: int) -> str:
     return "".join([f"Image-{i+1}: <image>\n" for i in range(n)])
 
 
-# =========================
-# Public interface
-# =========================
 def model_interface(*, image_paths: List[str], prompt: str, cfg: Optional[InferConfig] = None) -> str:
+    """
+    Contract:
+      raw_text = model_interface(image_paths=[...], prompt="...")
+      returns str
+    """
     bundle = _get_bundle()
     model = bundle.model
     tokenizer = bundle.tokenizer
@@ -251,13 +248,12 @@ def model_interface(*, image_paths: List[str], prompt: str, cfg: Optional[InferC
     cfg = cfg or InferConfig()
     generation_config = dict(max_new_tokens=cfg.max_new_tokens, do_sample=cfg.do_sample)
 
-    # ---- text-only ----
+    # text-only
     if not image_paths:
         with torch.inference_mode():
             response, _history = model.chat(tokenizer, None, prompt, generation_config, history=None, return_history=True)
         return str(response)
 
-    # ---- multi-image ----
     pixel_values, num_patches_list = load_images(
         image_paths,
         input_size=cfg.input_size,
@@ -290,7 +286,8 @@ def model_interface(*, image_paths: List[str], prompt: str, cfg: Optional[InferC
             )
         return str(response)
     finally:
-        # reduce fragmentation across chunks
+        # Reduce fragmentation across chunks
         del pixel_values
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
+        gc.collect()

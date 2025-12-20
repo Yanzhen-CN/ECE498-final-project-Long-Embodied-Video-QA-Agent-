@@ -1,14 +1,19 @@
 from __future__ import annotations
-import os, json, math, csv
-from pathlib import Path
-from typing import Tuple, Dict, Any, Optional
+
+import csv
+import json
+import math
 import shutil
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple
+
 import cv2
 
 
 def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
-    
+
+
 def slice_video(
     video: str,
     *,
@@ -24,8 +29,12 @@ def slice_video(
       - manifest JSON (chunk->images)
       - metadata CSV (frame-level index)
 
-    Returns:
-      (manifest_path, manifest_dict)
+    IMPORTANT:
+      video_id controls storage folder/name:
+        keyframes/<video_id>/..., manifests/<video_id>.json, metadata/<video_id>.csv
+
+      So if you pass video_id = f"{video_stem}__{mode}",
+      different modes will NOT overwrite each other.
     """
     video_path = Path(video)
     if not video_path.exists():
@@ -43,17 +52,15 @@ def slice_video(
 
     if overwrite:
         if keyframes_root.exists():
-            shutil.rmtree(keyframes_root)  # 删除整个 keyframes/<vid> 文件夹
+            shutil.rmtree(keyframes_root)
         if manifest_path.exists():
-            manifest_path.unlink()         # 删除旧 manifest
+            manifest_path.unlink()
         if csv_path.exists():
-            csv_path.unlink()              # 删除旧 csv
+            csv_path.unlink()
     else:
-        # 不允许覆盖：若存在则直接报错，防止误删
         if keyframes_root.exists() or manifest_path.exists() or csv_path.exists():
             raise FileExistsError(
-                f"Outputs for video_id='{vid}' already exist. "
-                f"Set overwrite=True to replace."
+                f"Outputs for video_id='{vid}' already exist. Set overwrite=True to replace."
             )
 
     _ensure_dir(manifests_dir)
@@ -71,28 +78,24 @@ def slice_video(
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     duration_sec = (frame_count / fps) if frame_count > 0 else 0.0
     if duration_sec <= 0:
-        # 兜底：仍然按 chunk_seconds 切至少 1 chunk
         duration_sec = float(chunk_seconds)
 
     n_chunks = max(1, math.ceil(duration_sec / chunk_seconds))
 
-    # CSV: 每张图一行（索引/标签）
-    csv_path = metadata_dir / f"{vid}.csv"
     csv_f = open(csv_path, "w", newline="", encoding="utf-8")
     csv_w = csv.writer(csv_f)
     csv_w.writerow(["video_id", "chunk_id", "img_idx", "t_sec", "image_path"])
 
-    # manifest（chunk级）
-    # video_path：建议存相对路径或原路径，你们组里统一即可
     manifest: Dict[str, Any] = {
         "manifest_version": "1.0",
         "video_id": vid,
-        "video_path": str(video_path).replace("\\", "/"),
+        "source_video_name": video_path.name,
+        "source_video_path": str(video_path).replace("\\", "/"),
         "fps": float(fps),
         "duration_sec": float(round(duration_sec, 3)),
         "chunk_seconds": int(chunk_seconds),
         "keyframes_per_chunk": int(keyframes_per_chunk),
-        "chunks": []
+        "chunks": [],
     }
 
     encode_params = [int(cv2.IMWRITE_JPEG_QUALITY), int(jpeg_quality)]
@@ -115,7 +118,6 @@ def slice_video(
 
         chunk_images = []
         for j in range(keyframes_per_chunk):
-            # 中心采样，避免边界
             alpha = (j + 0.5) / keyframes_per_chunk
             t = t_start + alpha * max(0.001, (t_end - t_start))
 
@@ -131,17 +133,18 @@ def slice_video(
 
             csv_w.writerow([vid, ci, j, round(t, 3), rel_img])
 
-        manifest["chunks"].append({
-            "chunk_id": ci,
-            "t_start": int(round(t_start)),
-            "t_end": int(round(t_end)),
-            "chunk_images": chunk_images
-        })
+        manifest["chunks"].append(
+            {
+                "chunk_id": ci,
+                "t_start": int(round(t_start)),
+                "t_end": int(round(t_end)),
+                "chunk_images": chunk_images,
+            }
+        )
 
     csv_f.close()
     cap.release()
 
-    manifest_path = manifests_dir / f"{vid}.json"
     with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
