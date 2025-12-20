@@ -83,8 +83,6 @@ class VideoStore:
 
     def get_path_by_name(self, name: str) -> Optional[Path]:
         p = self.dir_path / name
-        if not name.endswith(".mp4"):
-            name += ".mp4"
         if p.exists() and p.is_file() and p.suffix.lower() == ".mp4":
             return p
         return None
@@ -322,6 +320,8 @@ def run_free_mode(store: VideoStore) -> None:
         # (3) analyze a video
         if choice == "3":
             _print_uploaded(store)
+            if not name.endswith(".mp4"):
+                name += ".mp4"
             name = _safe_input("Enter video name to analyze (0 back, -1 exit): ").strip()
             if _is_exit(name):
                 raise SystemExit(0)
