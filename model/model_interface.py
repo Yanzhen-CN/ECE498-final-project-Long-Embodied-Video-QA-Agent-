@@ -243,7 +243,10 @@ def _prefix_images(n: int) -> str:
 # =========================
 # Public interface
 # =========================
-def model_interface(*, image_paths: List[str], prompt: str, cfg: Optional[InferConfig] = None) -> str:
+def model_interface(*, image_paths: List[str] = None, prompt: str, cfg: Optional[InferConfig] = None) -> str:
+    if image_paths is None:
+        image_paths = []  # 如果没有传入 image_paths，默认值为空列表
+    
     bundle = _get_bundle()
     model = bundle.model
     tokenizer = bundle.tokenizer

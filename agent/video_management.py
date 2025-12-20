@@ -30,7 +30,7 @@ def register_analysis_run(video_name: str, mode: str, run_id: str = None) -> Non
     # 简化的 run_id 格式：video_name_mode，去掉 .mp4 后缀
     if not run_id:
         run_id = f"{video_name}__{mode}"  # run_id 为 video_name 和 mode 的组合
-    
+        print("create run_id: video_name + __ + mode")
     # 追加新记录到现有的 runs 列表中
     reg["runs"].append(
         {
@@ -46,6 +46,19 @@ def list_analysis_runs() -> List[Dict[str, any]]:
     """列出已分析的运行记录"""
     reg = _load_registry()
     return reg.get("runs", [])
+
+def check_analysis_runs(run_id: str) -> bool:
+    # 获取所有已分析的记录
+    runs = list_analysis_runs()
+    
+    # 查找是否存在指定的 run_id
+    selected_run = None
+    for run in runs:
+        if run.get("run_id") == run_id:
+            return True
+
+    print(f"[ERROR] No analyzed runs found with run_id={run_id}.")
+    return False  # 没有找到对应的记录，返回 False
 
 # 删除指定的分析记录
 def delete_analysis_run(run_id: str) -> bool:

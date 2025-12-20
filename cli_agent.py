@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from agent.video_management import list_analysis_runs
+from agent.video_management import list_analysis_runs, check_analysis_runs
 from agent.address_questions_evaluation import run_qa_system
 from agent.video_summary_pipeline import MODES,summarize_video_for_cli
 from model.model_interface import init_model, is_model_loaded
@@ -355,7 +355,7 @@ def run_free_mode(store: VideoStore) -> None:
             runs = _print_analyzed()
             if not runs:
                 continue
-            idx_s = _safe_input("Pick run index for QA (0 back, -1 exit): ").strip()
+            idx_s = _safe_input("Choose run_id (video_name__mode) for QA (0 back, -1 exit): ").strip()
             if _is_exit(idx_s):
                 raise SystemExit(0)
             if idx_s == "0":
