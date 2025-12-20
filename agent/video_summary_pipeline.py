@@ -44,7 +44,7 @@ KEYFRAMES_PER_CHUNK = 6
 MODES: Dict[str, ModeConfig] = {
     "fast": ModeConfig(
         name="Fast",
-        slice_cfg=SliceConfig(chunk_seconds=45),
+        slice_cfg=SliceConfig(chunk_seconds=60),
         infer_cfg=InferConfig(max_new_tokens=128, max_num=2, use_thumbnail=False),
         two_pass=False,
     ),
