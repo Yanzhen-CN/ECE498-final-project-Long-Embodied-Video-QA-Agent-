@@ -30,6 +30,7 @@ def register_analysis_run(video_name: str, mode: str, run_id: str = None) -> Non
     if not run_id:
         run_id = f"{video_name}__{mode}"  # run_id 为 video_name 和 mode 的组合
         print("create run_id: video_name + __ + mode")
+    print(f"register {run_id}")
     # 追加新记录到现有的 runs 列表中
     reg["runs"].append(
         {
