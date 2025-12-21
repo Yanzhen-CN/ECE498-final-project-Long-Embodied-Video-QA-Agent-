@@ -533,11 +533,6 @@ def run_free_mode(store: VideoStore) -> None:
 
         # (7) Clean analyzed videos
         if choice == "7":
-            runs = _print_analyzed()
-            if not runs:
-                print("[WARN] No analyzed video to clean.")
-                continue
-
             sub = _safe_input(
                 "Clean analyzed runs:\n"
                 "  1) Delete ONE run (by video_id)\n"
@@ -564,7 +559,9 @@ def run_free_mode(store: VideoStore) -> None:
                 continue
 
             # show list again for copy
-            _print_analyzed()
+            if not _print_analyzed():
+                print("[WARN] No analyzed video to clean.")
+                continue
             video_id = _safe_input("Enter video_id to clean (video_name__mode) (0 back, -1 exit): ").strip()
             if _is_exit(video_id):
                 raise SystemExit(0)
