@@ -186,15 +186,15 @@ def summarize_video_for_cli(
     video_path = Path(video_path)
     video_name = video_path.name
     video_stem = video_path.stem
-    run_id = f"{video_stem}__{mode_key}"
+    video_id = f"{video_stem}__{mode_key}"
 
     # load model once (cache reuse)
     init_model(local_files_only=local_files_only)
 
-    # slice: store under run_id so modes don't overwrite
+    # slice: store under video_id so modes don't overwrite
     manifest_path, manifest_json = slice_video(
         str(video_path),
-        video_id=run_id,  # ✅ key change
+        video_id=video_id,  # ✅ key change
         chunk_seconds=cfg.slice_cfg.chunk_seconds,
         keyframes_per_chunk=KEYFRAMES_PER_CHUNK,
         overwrite=True,
@@ -236,14 +236,14 @@ def summarize_video_for_cli(
     if not chunk_summaries:
         return f"[WARN] No summaries produced. video='{video_name}'"
 
-    header = f"Video: {video_name} | Mode: {cfg.name} | run_id={run_id}"
+    header = f"Video: {video_name} | Mode: {cfg.name} | video_id={video_id}"
     context = header + "\n" + "\n".join(chunk_summaries)
-    print(f"Run summary pipeline success, {run_id} registering")
+    print(f"Run summary pipeline success, {video_id} registering")
     # registry
     register_analysis_run(
         video_name=video_name,
         mode=mode_key,  # Automatically handled
-        run_id = run_id
+        video_id = video_id
     )
 
     return context

@@ -100,7 +100,7 @@ def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "memory/sa
         "saved_to": [str(p) for p in out_paths],
     }
 
-def clean_memory(video_id: str, memory_root: str = "memory/saved_videos") -> bool:
+def clean_saved_memory(video_id: str = None, memory_root: str = "memory/saved_videos") -> bool:
     """
     Delete all chunk memories for a given video_id by removing:
       {memory_root}/{video_id}/
@@ -110,7 +110,10 @@ def clean_memory(video_id: str, memory_root: str = "memory/saved_videos") -> boo
         False -> directory not found (nothing to delete)
     """
     if not video_id or not video_id.strip():
-        raise ValueError("video_id is required")
+        print("clean all memory")
+        shutil.rmtree(memory_root)
+        return True
+
 
     # Safety: forbid path traversal / nested paths
     if Path(video_id).name != video_id or "/" in video_id or "\\" in video_id:

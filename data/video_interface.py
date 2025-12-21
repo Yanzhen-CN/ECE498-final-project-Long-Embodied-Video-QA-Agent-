@@ -143,10 +143,8 @@ def slice_video(
     return manifest_path, manifest
 
 def clean_processed_video(
-    video_id: str,
-    *,
-    data_root: str = "data",
-    dry_run: bool = False,
+    video_id: str = None,
+    root: str = "data/processed_videos"
 ) -> bool:
     """
     Delete processed video artifacts under:
@@ -157,15 +155,19 @@ def clean_processed_video(
         True  -> folder existed (and deleted if not dry_run)
         False -> folder did not exist
     """
-    base_dir = Path(data_root) / "processed_videos" / video_id
+    if not video_id or not str(video_id).strip():
+        if not root.exists():
+            print("already cleaned")
+            return False
+        shutil.rmtree(root, ignore_errors=True)
+        print(f"[Clean] Deleted: {root}")
+        return True
+    
+    base_dir = Path(root) / video_id
 
     if not base_dir.exists():
         print(f"[Clean] Not found: {base_dir}")
         return False
-
-    if dry_run:
-        print(f"[Dry-run] Would delete: {base_dir}")
-        return True
 
     shutil.rmtree(base_dir, ignore_errors=True)
     print(f"[Clean] Deleted: {base_dir}")

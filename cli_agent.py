@@ -16,7 +16,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional, Tuple
 
-from agent.video_management import list_analysis_runs, check_analysis_runs
+from data.video_interface import clean_processed_video
+from memory.memory_interface import clean_saved_memory
+from agent.video_management import list_analysis_runs, check_analysis_runs, delete_analysis_run, clear_all_analysis_runs
 from agent.address_questions_evaluation import run_qa_system
 from agent.video_summary_pipeline import MODES,summarize_video_for_cli
 from model.model_interface import init_model, is_model_loaded
@@ -146,8 +148,9 @@ def free_menu() -> str:
     print("( 1) Upload video (.mp4)")
     print("( 2) List uploaded videos")
     print("( 3) Analyze a video (run summary pipeline)")
-    print("( 4) List analyzed runs (video + mode)")
-    print("( 5) QA on analyzed run")
+    print("( 4) List analyzed videos (video + mode)")
+    print("( 5) QA on analyzed video")
+    print("( 6) Clean analyzed videos")
     return _safe_input("Select: ").strip()
 
 
@@ -221,7 +224,7 @@ def _print_analyzed() -> list[dict]:
         return []
     print("\nAnalyzed runs:")
     for i, r in enumerate(runs):
-        print(f"  [{i}] {r.get('video_name')} | mode={r.get('mode')} | run_id={r.get('run_id')}")
+        print(f"  [{i}] {r.get('video_name')} | mode={r.get('mode')} | video_id={r.get('video_id')}")
     return runs
 
 
@@ -409,7 +412,7 @@ def run_test_mode(store: VideoStore) -> None:
     print("==========================================================\n")
     _safe_input("Press Enter to return to menu...")
 
-
+# functino for free mode QA
 def run_qa_loop(context: str) -> None:
     while True:
         c = qa_menu()
@@ -418,7 +421,7 @@ def run_qa_loop(context: str) -> None:
         if c == "0":
             return
         if c == "1":
-            q = _safe_input("Your question (-1 to exit): ").strip()
+            q = _safe_input("Enter your question (-1 to exit): ").strip()
             if _is_exit(q):
                 raise SystemExit(0)
             resp = answer_question(context, q)
@@ -508,36 +511,89 @@ def run_free_mode(store: VideoStore) -> None:
             _run_analysis(vp, mode)
             continue
 
-        # (4) list analyzed runs
+        # (4) list analyzed videos
         if choice == "4":
             _print_analyzed()
             continue
 
-        # (5) QA on analyzed run
+        # (5) QA on analyzed video
         if choice == "5":
             runs = _print_analyzed()
             if not runs:
                 continue
-            idx_s = _safe_input("Choose run_id (video_name__mode) for QA (0 back, -1 exit): ").strip()
-            if _is_exit(idx_s):
+
+            video_id = _safe_input("Enter video_id (video_name__mode) for QA (0 back, -1 exit): ").strip()
+            if _is_exit(video_id):
                 raise SystemExit(0)
-            if idx_s == "0":
-                continue
-            try:
-                idx = int(idx_s)
-                run = runs[idx]
-            except Exception:
-                print("Invalid index.")
+            if video_id == "0":
                 continue
 
-            run_id = str(run.get("run_id", ""))
-            if not run_id:
-                print("[ERR] run_id missing in registry.")
+            # strict registry check
+            if not check_analysis_runs(video_id):
+                print()
                 continue
 
-            
-            print(f"\n[OK] Loaded analyzed context: run_id={run_id}. Entering QA...")
+            # load context from disk (memory)
+            # TODO
+            print("TODO: compelete this function")
+            '''
+            context = load_context_from_memory(video_id, memory_root="memory/saved_videos")
+            if not context:
+                print(f"[ERR] Context not found on disk for video_id={video_id}. "
+                    f"Expected memory at memory/saved_videos/{video_id}/")
+                continue
+
+            print(f"\n[OK] Loaded analyzed context: video_id={video_id}. Entering QA...")
+            run_qa_loop(context)
+            '''
             continue
+
+
+        # (6) Clean on analyzed run
+        if choice == "6":
+            sub = _safe_input(
+                "Clean analyzed runs:\n"
+                "  1) Delete ONE run (by video_id)\n"
+                "  2) Clear ALL runs\n"
+                "Choose (0 back, -1 exit): "
+            )
+
+            if _is_exit(sub):
+                raise SystemExit(0)
+            if sub == "0":
+                continue
+
+            # ---- clear all ----
+            if sub == "2":
+                n = clear_all_analysis_runs()
+                ok_proc = clean_processed_video(None, root="data/processed_videos")
+                ok_mem = clean_saved_memory(None, memory_root="memory/saved_videos")
+                print(f"[OK] Cleared {n} registry records | processed={ok_proc} | memory={ok_mem}")
+                continue
+
+            # ---- delete one ----
+            if sub != "1":
+                print("Invalid option. Please choose 0/1/2/-1")
+                continue
+            _print_analyzed()  # give user a copyable list
+
+            video_id = _safe_input("Enter video_id to clean (video_name__mode) (0 back, -1 exit): ")
+            if _is_exit(video_id):
+                raise SystemExit(0)
+            if video_id == "0":
+                continue
+
+            # strict registry check
+            if not check_analysis_runs(video_id):
+                continue
+
+            ok_reg = delete_analysis_run(video_id)
+            ok_proc = clean_processed_video(video_id, root="data/processed_videos")
+            ok_mem = clean_saved_memory(video_id, memory_root="memory/saved_videos")
+
+            print(f"[OK] Cleaned video_id={video_id} | registry={ok_reg} | processed={ok_proc} | memory={ok_mem}")
+            continue
+
 
         print("Invalid option. Please choose 0/1/2/3/4/5/-1.")
 
