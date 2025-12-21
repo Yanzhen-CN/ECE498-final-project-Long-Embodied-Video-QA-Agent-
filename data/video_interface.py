@@ -9,7 +9,8 @@ from typing import Any, Dict, Optional, Tuple
 
 import cv2
 
-
+DATA_ROOT = "data"
+PROCESSED_ROOT = Path(DATA_ROOT) / "processed_videos"
 def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
@@ -18,7 +19,7 @@ def slice_video(
     video: str,
     *,
     video_id: Optional[str] = None,
-    data_root: str = "data",
+    data_root: str = DATA_ROOT,
     chunk_seconds: int = 30,
     keyframes_per_chunk: int = 6,
     jpeg_quality: int = 90,
@@ -144,7 +145,7 @@ def slice_video(
 
 def clean_processed_video(
     video_id: str = None,
-    root: str = "data/processed_videos"
+    processed_root: str = PROCESSED_ROOT
 ) -> bool:
     """
     Delete processed video artifacts under:
@@ -155,6 +156,7 @@ def clean_processed_video(
         True  -> folder existed (and deleted if not dry_run)
         False -> folder did not exist
     """
+    root = Path(processed_root)
     if not video_id or not str(video_id).strip():
         if not root.exists():
             print("already cleaned")

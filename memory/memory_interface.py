@@ -15,7 +15,7 @@ REQUIRED_FIELDS = {
     "state_update",
     "evidence_frames",
 }
-
+MEMORY_ROOT = "memory/saved_videos"
 
 def _validate_chunk_memory(chunk: Dict) -> None:
     """Lightweight validation for ChunkMemory."""
@@ -32,7 +32,7 @@ def _validate_chunk_memory(chunk: Dict) -> None:
 
 def _save_chunks(
     chunks: List[Dict],
-    memory_root: str = "memory/saved_videos",
+    memory_root: str = MEMORY_ROOT,
 ) -> List[Path]:
     """
     Save each chunk into its own JSONL file under:
@@ -70,7 +70,7 @@ def _save_chunks(
 # ==================================================
 # ⭐ Unified public interface
 # ==================================================
-def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "memory/saved_videos") -> Dict:
+def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = MEMORY_ROOT) -> Dict:
     if isinstance(record, dict):
         chunks = [record]
     elif isinstance(record, list):
@@ -100,7 +100,7 @@ def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = "memory/sa
         "saved_to": [str(p) for p in out_paths],
     }
 
-def clean_saved_memory(video_id: str = None, memory_root: str = "memory/saved_videos") -> bool:
+def clean_saved_memory(video_id: str = None, memory_root: str = MEMORY_ROOT) -> bool:
     """
     Delete all chunk memories for a given video_id by removing:
       {memory_root}/{video_id}/
@@ -109,8 +109,12 @@ def clean_saved_memory(video_id: str = None, memory_root: str = "memory/saved_vi
         True  -> directory existed and was deleted
         False -> directory not found (nothing to delete)
     """
+    memory_root = Path(memory_root)
     if not video_id or not video_id.strip():
         print("clean all memory")
+        if not memory_root.exists():
+            print("already cleaned")
+            return False
         shutil.rmtree(memory_root)
         return True
 

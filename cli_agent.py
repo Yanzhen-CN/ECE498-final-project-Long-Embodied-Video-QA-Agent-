@@ -600,7 +600,7 @@ def run_free_mode(store: VideoStore) -> None:
 
 def main() -> None:
     store = VideoStore(UPLOAD_DIR)
-    _preload_model_or_warn()
+    #_preload_model_or_warn()
 
     while True:
         c = main_menu()
