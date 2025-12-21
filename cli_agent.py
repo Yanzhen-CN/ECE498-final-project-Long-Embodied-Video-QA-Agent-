@@ -11,13 +11,12 @@ from agent.address_questions_evaluation import run_qa_system
 from model.model_interface import model_interface
 
 import os
-import shutil
-from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
-from data.video_interface import clean_processed_video
+from data.video_interface import VideoStore, list_uploaded_videos, clean_one_uploaded, clean_all_uploaded, clean_processed_video
 from memory.memory_interface import clean_saved_memory
+
 from agent.video_management import list_analysis_runs, check_analysis_runs, delete_analysis_run, clear_all_analysis_runs
 from agent.address_questions_evaluation import run_qa_system
 from agent.video_summary_pipeline import MODES,summarize_video_for_cli
@@ -81,56 +80,6 @@ def _preload_model_or_warn() -> None:
 
 
 # -----------------------------
-# Video store
-# -----------------------------
-@dataclass
-class VideoStore:
-    dir_path: Path
-
-    def list_names(self) -> list[str]:
-        files = sorted([p for p in self.dir_path.iterdir() if p.is_file() and p.suffix.lower() == ".mp4"])
-        return [p.name for p in files]
-
-    def get_path_by_name(self, name: str) -> Optional[Path]:
-        p = self.dir_path / name
-        if p.exists() and p.is_file() and p.suffix.lower() == ".mp4":
-            return p
-        return None
-
-    def _dst_path(self, src: Path, dst_name: Optional[str]) -> Path:
-        if dst_name is not None and dst_name.strip():
-            name = Path(dst_name.strip()).name
-            if not name.lower().endswith(".mp4"):
-                name += ".mp4"
-            return self.dir_path / name
-        return self.dir_path / src.name
-
-    def upload_from_path(
-        self,
-        src_path: str,
-        dst_name: Optional[str] = None,
-        *,
-        overwrite: bool = False,
-    ) -> Tuple[bool, str]:
-        src = Path(src_path).expanduser().resolve()
-        if not src.exists() or not src.is_file():
-            return False, f"Upload failed: file not found: {src}"
-        if not _is_mp4(src):
-            return False, f"Upload failed: only .mp4 is supported, got: {src.suffix}"
-
-        dst = self._dst_path(src, dst_name)
-        if dst.exists() and not overwrite:
-            return False, f"Upload blocked: '{dst.name}' already exists."
-
-        try:
-            print("Uploading... (copying file to local upload dir)")
-            shutil.copy2(src, dst)
-            return True, f"Upload success{' (overwritten)' if overwrite else ''}: {dst.name}"
-        except Exception as e:
-            return False, f"Upload failed: {e}"
-
-
-# -----------------------------
 # Menus
 # -----------------------------
 def main_menu() -> str:
@@ -147,11 +96,13 @@ def free_menu() -> str:
     print("( 0) Back")
     print("( 1) Upload video (.mp4)")
     print("( 2) List uploaded videos")
-    print("( 3) Analyze a video (run summary pipeline)")
-    print("( 4) List analyzed videos (video + mode)")
-    print("( 5) QA on analyzed video")
-    print("( 6) Clean analyzed videos")
+    print("( 3) Clean uploaded videos")          # NEW
+    print("( 4) Analyze a video (run summary pipeline)")
+    print("( 5) List analyzed videos (video + mode)")
+    print("( 6) QA on analyzed video")
+    print("( 7) Clean analyzed videos")
     return _safe_input("Select: ").strip()
+
 
 
 def analysis_mode_menu() -> str:
@@ -189,7 +140,7 @@ def answer_question(context: str, question: str) -> str:
 
 
 # -----------------------------
-# Helpers
+# Helper Functions
 # -----------------------------
 def _pick_mode() -> Optional[str]:
     while True:
@@ -207,7 +158,7 @@ def _pick_mode() -> Optional[str]:
         print("Invalid option. Please choose 0/1/2/3/-1.")
 
 
-def _print_uploaded(store: VideoStore) -> None:
+def _print_uploaded(store: VideoStore) -> list[str]:
     names = store.list_names()
     if not names:
         print("No uploaded videos yet.")
@@ -215,6 +166,7 @@ def _print_uploaded(store: VideoStore) -> None:
     print("\nUploaded videos:")
     for i, n in enumerate(names):
         print(f"  [{i}] {n}")
+    return names
 
 
 def _print_analyzed() -> list[dict]:
@@ -448,6 +400,14 @@ def run_free_mode(store: VideoStore) -> None:
             if src == "0":
                 continue
 
+            # check existence immediately
+            try:
+                src_p = store._src_path(src)
+                print(f"[OK] Found source: {src_p}")
+            except Exception as e:
+                print(f"[WARN] {e}")
+                continue
+
             new_name = _safe_input("Save as (Enter to keep original name) (0 back, -1 exit): ").strip()
             if _is_exit(new_name):
                 raise SystemExit(0)
@@ -456,7 +416,8 @@ def run_free_mode(store: VideoStore) -> None:
             if new_name == "":
                 new_name = None
 
-            src_p = Path(src).expanduser().resolve()
+
+            
             dst_p = store._dst_path(src_p, new_name)
             if dst_p.exists():
                 ans = _safe_input(f"'{dst_p.name}' already exists. Overwrite? (y/N): ").strip().lower()
@@ -471,7 +432,6 @@ def run_free_mode(store: VideoStore) -> None:
             if not ok:
                 continue
 
-            # Optional: analyze immediately
             ans2 = _safe_input("Analyze this video now? (y/N): ").strip().lower()
             if ans2 == "y":
                 mode = _pick_mode()
@@ -489,35 +449,72 @@ def run_free_mode(store: VideoStore) -> None:
             _print_uploaded(store)
             continue
 
-        # (3) analyze a video
+        # (3) clean uploaded videos
         if choice == "3":
-            _print_uploaded(store)
+            sub = _safe_input(
+                "Clean uploaded videos:\n"
+                "  1) Delete ONE uploaded video\n"
+                "  2) Clear ALL uploaded videos\n"
+                "Choose (0 back, -1 exit): "
+            ).strip()
+
+            if _is_exit(sub):
+                raise SystemExit(0)
+            if sub == "0":
+                continue
+
+            if sub == "2":
+                clean_all_uploaded(store)
+                continue
+
+            if sub != "1":
+                print("Invalid option. Please choose 0/1/2/-1")
+                continue
+
+            if not _print_uploaded(store):
+                print("[WARN] No uploaded video to clean.")
             
-            name = _safe_input("Enter video name to analyze (0 back, -1 exit): ").strip()
-            if not name.endswith(".mp4"):
-                name += ".mp4"
-                print(name)
+            name = _safe_input("Enter uploaded video name to delete (0 back, -1 exit): ").strip()
             if _is_exit(name):
                 raise SystemExit(0)
             if name == "0":
                 continue
+
+            clean_one_uploaded(store, name)
+            continue
+
+        # (4) analyze a video
+        if choice == "4":
+            _print_uploaded(store)
+
+            name = _safe_input("Enter video name to analyze (0 back, -1 exit): ").strip()
+            if not name.endswith(".mp4"):
+                name += ".mp4"
+                print(f"add suffix: {name}")
+            if _is_exit(name):
+                raise SystemExit(0)
+            if name == "0":
+                continue
+
             vp = store.get_path_by_name(name)
             if vp is None:
                 print("Video not found. Please check the name.")
                 continue
+
             mode = _pick_mode()
             if mode is None:
                 continue
+
             _run_analysis(vp, mode)
             continue
 
-        # (4) list analyzed videos
-        if choice == "4":
+        # (5) list analyzed videos
+        if choice == "5":
             _print_analyzed()
             continue
 
-        # (5) QA on analyzed video
-        if choice == "5":
+        # (6) QA on analyzed video (placeholder)
+        if choice == "6":
             runs = _print_analyzed()
             if not runs:
                 continue
@@ -528,74 +525,63 @@ def run_free_mode(store: VideoStore) -> None:
             if video_id == "0":
                 continue
 
-            # strict registry check
             if not check_analysis_runs(video_id):
-                print()
                 continue
 
-            # load context from disk (memory)
-            # TODO
-            print("TODO: compelete this function")
-            '''
-            context = load_context_from_memory(video_id, memory_root="memory/saved_videos")
-            if not context:
-                print(f"[ERR] Context not found on disk for video_id={video_id}. "
-                    f"Expected memory at memory/saved_videos/{video_id}/")
-                continue
-
-            print(f"\n[OK] Loaded analyzed context: video_id={video_id}. Entering QA...")
-            run_qa_loop(context)
-            '''
+            print("[TODO] QA not implemented yet. (will load context by video_id and run QA loop)")
             continue
 
+        # (7) Clean analyzed videos
+        if choice == "7":
+            runs = _print_analyzed()
+            if not runs:
+                print("[WARN] No analyzed video to clean.")
+                continue
 
-        # (6) Clean on analyzed run
-        if choice == "6":
             sub = _safe_input(
                 "Clean analyzed runs:\n"
                 "  1) Delete ONE run (by video_id)\n"
                 "  2) Clear ALL runs\n"
                 "Choose (0 back, -1 exit): "
-            )
+            ).strip()
 
             if _is_exit(sub):
                 raise SystemExit(0)
             if sub == "0":
                 continue
 
-            # ---- clear all ----
+            # clear all
             if sub == "2":
                 n = clear_all_analysis_runs()
-                ok_proc = clean_processed_video(None, root="data/processed_videos")
-                ok_mem = clean_saved_memory(None, memory_root="memory/saved_videos")
+                ok_proc = clean_processed_video()   # no keyword args
+                ok_mem = clean_saved_memory()       # no keyword args
                 print(f"[OK] Cleared {n} registry records | processed={ok_proc} | memory={ok_mem}")
                 continue
 
-            # ---- delete one ----
+            # delete one
             if sub != "1":
                 print("Invalid option. Please choose 0/1/2/-1")
                 continue
-            _print_analyzed()  # give user a copyable list
 
-            video_id = _safe_input("Enter video_id to clean (video_name__mode) (0 back, -1 exit): ")
+            # show list again for copy
+            _print_analyzed()
+            video_id = _safe_input("Enter video_id to clean (video_name__mode) (0 back, -1 exit): ").strip()
             if _is_exit(video_id):
                 raise SystemExit(0)
             if video_id == "0":
                 continue
 
-            # strict registry check
             if not check_analysis_runs(video_id):
                 continue
 
             ok_reg = delete_analysis_run(video_id)
-            ok_proc = clean_processed_video(video_id, root="data/processed_videos")
-            ok_mem = clean_saved_memory(video_id, memory_root="memory/saved_videos")
+            ok_proc = clean_processed_video(video_id)
+            ok_mem = clean_saved_memory(video_id)
 
             print(f"[OK] Cleaned video_id={video_id} | registry={ok_reg} | processed={ok_proc} | memory={ok_mem}")
             continue
 
-
-        print("Invalid option. Please choose 0/1/2/3/4/5/-1.")
+        print("Invalid option. Please choose 0/1/2/3/4/5/6/7/-1.")
 
 
 def main() -> None:

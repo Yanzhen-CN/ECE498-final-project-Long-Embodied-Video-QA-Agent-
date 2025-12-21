@@ -1,1 +1,0 @@
-{"video_id": "vid_demo_002", "chunk_id": "chunk_0002", "t_start": 30, "t_end": 60, "summary": "Second segment with speech.", "entities": [{"name": "Bob", "type": "person"}], "events": [{"type": "speech", "text": "Hello"}], "state_update": {"topic": "greeting"}, "evidence_frames": [{"frame": 50, "ts": 32.0}]}

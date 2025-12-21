@@ -100,7 +100,7 @@ def memory_ingest(record: Union[Dict, List[Dict]], memory_root: str = MEMORY_ROO
         "saved_to": [str(p) for p in out_paths],
     }
 
-def clean_saved_memory(video_id: str = None, memory_root: str = MEMORY_ROOT) -> bool:
+def clean_saved_memory(video_id: str = None, memory_root: str | Path = MEMORY_ROOT) -> bool:
     """
     Delete all chunk memories for a given video_id by removing:
       {memory_root}/{video_id}/
@@ -111,9 +111,9 @@ def clean_saved_memory(video_id: str = None, memory_root: str = MEMORY_ROOT) -> 
     """
     memory_root = Path(memory_root)
     if not video_id or not video_id.strip():
-        print("clean all memory")
+        print("memory already cleaned")
         if not memory_root.exists():
-            print("already cleaned")
+            print("No memory exist")
             return False
         shutil.rmtree(memory_root)
         return True

@@ -4,44 +4,67 @@ import csv
 import json
 import math
 import shutil
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, List
 
 import cv2
 
-DATA_ROOT = "data"
-PROCESSED_ROOT = Path(DATA_ROOT) / "processed_videos"
+# -----------------------------
+# Paths
+# -----------------------------
+DATA_ROOT = Path("data")
+PROCESSED_ROOT = DATA_ROOT / "processed_videos"
+VIDEOS_ROOT = DATA_ROOT / "videos"
+
+
 def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
 
+def _is_mp4(p: Path) -> bool:
+    return p.suffix.lower() == ".mp4"
+
+
+def _sanitize_id(s: str, *, name: str = "id") -> str:
+    """Forbid path traversal / nested paths."""
+    s = (s or "").strip()
+    if not s:
+        raise ValueError(f"{name} is empty")
+    if Path(s).name != s or "/" in s or "\\" in s:
+        raise ValueError(f"Invalid {name}: {s}")
+    return s
+
+
+# -----------------------------
+# Video slicing (processed artifacts)
+# -----------------------------
 def slice_video(
     video: str,
     *,
     video_id: Optional[str] = None,
-    data_root: str = DATA_ROOT,
+    data_root: str | Path = DATA_ROOT,
     chunk_seconds: int = 30,
     keyframes_per_chunk: int = 6,
     jpeg_quality: int = 90,
     overwrite: bool = True,
 ) -> Tuple[Path, Dict[str, Any]]:
     """
-    Slice a long video into chunk skeyframes and produce:
+    Slice a long video into chunk keyframes and produce:
       - manifest JSON (chunk->image)
       - metadata CSV (frame-level index)
 
-    IMPORTANT:
-      video_id controls storage folder/name:
-        keyframes/<video_id>/..., manifests/<video_id>.json, metadata/<video_id>.csv
-
-      So if you pass video_id = f"{video_stem}__{mode}",
-      different modes will NOT overwrite each other.
+    Layout:
+      {data_root}/processed_videos/{video_id}/
+        keyframes/chunk_000/img_00.jpg ...
+        manifests/{video_id}.json
+        metadata/{video_id}.csv
     """
     video_path = Path(video)
     if not video_path.exists():
         raise FileNotFoundError(f"Video not found: {video_path}")
 
-    vid = video_id or video_path.stem
+    vid = (video_id or video_path.stem).strip()
     data_root_p = Path(data_root)
 
     base = data_root_p / "processed_videos" / vid
@@ -53,9 +76,12 @@ def slice_video(
     csv_path = metadata_dir / f"{vid}.csv"
 
     if overwrite:
-        base = data_root_p / "processed_videos" / vid
         if base.exists():
             shutil.rmtree(base, ignore_errors=True)
+        _ensure_dir(keyframes_dir)
+        _ensure_dir(manifest_path.parent)
+        _ensure_dir(csv_path.parent)
+    else:
         _ensure_dir(keyframes_dir)
         _ensure_dir(manifest_path.parent)
         _ensure_dir(csv_path.parent)
@@ -109,7 +135,7 @@ def slice_video(
         chunk_dir = keyframes_dir / f"chunk_{ci:03d}"
         _ensure_dir(chunk_dir)
 
-        chunk_images = []
+        chunk_images: List[str] = []
         for j in range(keyframes_per_chunk):
             alpha = (j + 0.5) / keyframes_per_chunk
             t = t_start + alpha * max(0.001, (t_end - t_start))
@@ -123,7 +149,6 @@ def slice_video(
             rel_img = f"{data_root_p.name}/processed_videos/{vid}/keyframes/chunk_{ci:03d}/{img_name}"
             rel_img = rel_img.replace("\\", "/")
             chunk_images.append(rel_img)
-
             csv_w.writerow([vid, ci, j, round(t, 3), rel_img])
 
         manifest["chunks"].append(
@@ -143,34 +168,163 @@ def slice_video(
 
     return manifest_path, manifest
 
-def clean_processed_video(
-    video_id: str = None,
-    processed_root: str = PROCESSED_ROOT
-) -> bool:
+
+def clean_processed_video(video_id: str | None = None, processed_root: str | Path = PROCESSED_ROOT) -> bool:
     """
-    Delete processed video artifacts under:
+    Delete processed artifacts under:
+      {processed_root}/{video_id}/
 
-      data/processed_videos/<video_id>/
-
-    Returns:
-        True  -> folder existed (and deleted if not dry_run)
-        False -> folder did not exist
+    If video_id is None/empty -> delete entire processed_root.
     """
     root = Path(processed_root)
+
+    # clear all
     if not video_id or not str(video_id).strip():
         if not root.exists():
-            print("already cleaned")
+            print("[Clean] processed_videos already cleaned.")
             return False
         shutil.rmtree(root, ignore_errors=True)
         print(f"[Clean] Deleted: {root}")
         return True
-    
-    base_dir = Path(root) / video_id
 
-    if not base_dir.exists():
-        print(f"[Clean] Not found: {base_dir}")
+    vid = _sanitize_id(str(video_id), name="video_id")
+    target = root / vid
+
+    if not target.exists():
+        print(f"[Clean] Not found: {target}")
         return False
 
-    shutil.rmtree(base_dir, ignore_errors=True)
-    print(f"[Clean] Deleted: {base_dir}")
+    shutil.rmtree(target, ignore_errors=True)
+    print(f"[Clean] Deleted: {target}")
     return True
+
+
+# -----------------------------
+# Uploaded videos (raw mp4)
+# -----------------------------
+@dataclass
+class VideoStore:
+    """Manage uploaded mp4 files under a directory (default: data/videos)."""
+    dir_path: Path = VIDEOS_ROOT
+
+    def __post_init__(self) -> None:
+        self.dir_path.mkdir(parents=True, exist_ok=True)
+
+    def list_names(self) -> List[str]:
+        files = sorted([p for p in self.dir_path.iterdir() if p.is_file() and _is_mp4(p)])
+        return [p.name for p in files]
+
+    def get_path_by_name(self, name: str) -> Optional[Path]:
+        p = self.dir_path / name
+        if p.exists() and p.is_file() and _is_mp4(p):
+            return p
+        return None
+
+    def _src_path(self, src_input: str) -> Path:
+        """
+        Normalize user input into an existing .mp4 Path.
+        - supports: absolute/relative path, with or without .mp4 suffix
+        - expands ~ and resolves
+        """
+        s = (src_input or "").strip()
+        if not s:
+            raise ValueError("Empty src path.")
+
+        # If user typed without suffix, append ".mp4"
+        # NOTE: do NOT use endswith on the raw string when it has trailing spaces
+        if not s.lower().endswith(".mp4"):
+            s = s + ".mp4"
+
+        p = Path(s).expanduser()
+
+        # On Windows, resolve() can throw if path is weird; keep it safe
+        try:
+            p = p.resolve()
+        except Exception:
+            p = p.absolute()
+
+        if not p.exists() or not p.is_file():
+            raise FileNotFoundError(f"File not found: {p}")
+
+        if p.suffix.lower() != ".mp4":
+            raise ValueError(f"Only .mp4 supported, got: {p.suffix}")
+
+        return p
+    
+    def _dst_path(self, src: Path, dst_name: Optional[str]) -> Path:
+        if dst_name is not None and dst_name.strip():
+            name = Path(dst_name.strip()).name
+            if not name.lower().endswith(".mp4"):
+                name += ".mp4"
+            return self.dir_path / name
+        return self.dir_path / src.name
+
+    def upload_from_path(
+        self,
+        src_path: str,
+        dst_name: Optional[str] = None,
+        *,
+        overwrite: bool = False,
+    ) -> Tuple[bool, str]:
+        try:
+            src = self._src_path(src_path)
+        except Exception as e:
+            return False, f"Upload failed: {e}"
+
+        dst = self._dst_path(src, dst_name)
+        if dst.exists() and not overwrite:
+            return False, f"Upload blocked: '{dst.name}' already exists."
+
+        try:
+            shutil.copy2(src, dst)
+            return True, f"Upload success{' (overwritten)' if overwrite else ''}: {dst.name}"
+        except Exception as e:
+            return False, f"Upload failed: {e}"
+
+
+def upload_video(
+    src_path: str,
+    *,
+    dst_name: Optional[str] = None,
+    overwrite: bool = False,
+    videos_root: Path = VIDEOS_ROOT,
+) -> Tuple[bool, str]:
+    """Thin wrapper (kept for compatibility): upload using VideoStore."""
+    store = VideoStore(videos_root)
+    return store.upload_from_path(src_path, dst_name=dst_name, overwrite=overwrite)
+
+
+def list_uploaded_videos(videos_root: Path = VIDEOS_ROOT) -> List[str]:
+    store = VideoStore(videos_root)
+    return store.list_names()
+
+
+def clean_one_uploaded(video_name: str, videos_root: Path = VIDEOS_ROOT) -> bool:
+    store = VideoStore(videos_root)
+    name = (video_name or "").strip()
+    if not name:
+        return False
+    if not name.lower().endswith(".mp4"):
+        name += ".mp4"
+
+    p = store.dir_path / name
+    if not p.exists():
+        print(f"[Clean] Not found: {p}")
+        return False
+
+    p.unlink()
+    print(f"[Clean] Deleted uploaded: {p.name}")
+    return True
+
+
+def clean_all_uploaded(videos_root: Path = VIDEOS_ROOT) -> int:
+    store = VideoStore(videos_root)
+    cnt = 0
+    for p in store.dir_path.glob("*.mp4"):
+        try:
+            p.unlink()
+            cnt += 1
+        except Exception:
+            pass
+    print(f"[Clean] Deleted {cnt} uploaded videos under: {store.dir_path}")
+    return cnt
