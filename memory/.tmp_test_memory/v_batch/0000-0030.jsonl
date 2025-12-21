@@ -1,1 +1,0 @@
-{"video_id": "v_batch", "chunk_id": 1, "t_start": 0, "t_end": 30, "summary": "chunk 1", "entities": ["person"], "events": [{"verb": "walk", "obj": "", "detail": ""}], "state_update": {}, "evidence_frames": ["f0.jpg"]}

@@ -1,1 +1,0 @@
-{"video_id": "v_test", "chunk_id": 0, "t_start": 570, "t_end": 600, "summary": "A person picks up a cup.", "entities": ["person", "cup"], "events": [{"verb": "pick_up", "obj": "cup", "detail": ""}], "state_update": {"holding": "cup"}, "evidence_frames": ["data/keyframes/v_test/chunk_000/img_00.jpg"]}

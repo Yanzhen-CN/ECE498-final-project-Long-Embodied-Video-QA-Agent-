@@ -10,3 +10,5 @@ __pycache__/
 *.json
 *.jsonl
 model/hf_cache/
+data/source
+data/videos

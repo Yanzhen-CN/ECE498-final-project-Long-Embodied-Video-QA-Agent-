@@ -1,1 +1,0 @@
-{"video_id": "v_batch", "chunk_id": 2, "t_start": 30, "t_end": 60, "summary": "chunk 2", "entities": ["cup"], "events": [{"verb": "pick_up", "obj": "cup", "detail": ""}], "state_update": {"holding": "cup"}, "evidence_frames": ["f1.jpg"]}
