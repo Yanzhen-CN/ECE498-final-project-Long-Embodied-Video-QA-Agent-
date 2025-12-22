@@ -377,7 +377,7 @@ def run_qa_loop(video_id: str) -> None:
             if _is_exit(q):
                 raise SystemExit(0)
             # TODO: implement a function to get the context from the video_id
-            # memory_retrieve(video_id:str) -> str
+            # context = memory_retrieve(video_id:str) -> str
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
