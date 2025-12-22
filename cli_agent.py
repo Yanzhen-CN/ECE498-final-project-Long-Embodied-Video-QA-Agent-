@@ -377,7 +377,19 @@ def run_qa_loop(video_id: str) -> None:
             if _is_exit(q):
                 raise SystemExit(0)
             # TODO: implement a function to get the context from the video_id
-            # memory_retrieve(video_id:str) -> str
+            '''
+            memory_retrieval(video_id:str) -> str
+                ...
+            return context
+            '''
+            # context is composed by following rule:
+            # context = context_of_chunk1 + context_of_chunk2 + ... --> str
+            # each context_of_chunki is composed by extracting the information of json by following rule
+            # context_of_chunk_1 = "From" + {t_start} + "to" + {t_end} + ":" + {summary} + "\n" -->str
+            '''
+            from memory.memory_interface import memory_retrieval
+            context = memory_retrieve(video_id)
+            '''
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
