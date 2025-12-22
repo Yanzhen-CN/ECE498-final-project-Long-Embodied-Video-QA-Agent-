@@ -364,8 +364,8 @@ def run_test_mode(store: VideoStore) -> None:
     print("==========================================================\n")
     _safe_input("Press Enter to return to menu...")
 
-# functino for free mode QA
-def run_qa_loop(context: str) -> None:
+# function for free mode QA
+def run_qa_loop(video_id: str) -> None:
     while True:
         c = qa_menu()
         if _is_exit(c):
@@ -376,6 +376,8 @@ def run_qa_loop(context: str) -> None:
             q = _safe_input("Enter your question (-1 to exit): ").strip()
             if _is_exit(q):
                 raise SystemExit(0)
+            # TODO: implement a function to get the context from the video_id
+            # memory_retrieve(video_id:str) -> str
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
@@ -513,7 +515,7 @@ def run_free_mode(store: VideoStore) -> None:
             _print_analyzed()
             continue
 
-        # (6) QA on analyzed video (placeholder)
+        # (6) QA on analyzed video
         if choice == "6":
             runs = _print_analyzed()
             if not runs:
@@ -528,7 +530,7 @@ def run_free_mode(store: VideoStore) -> None:
             if not check_analysis_runs(video_id):
                 continue
 
-            print("[TODO] QA not implemented yet. (will load context by video_id and run QA loop)")
+            run_qa_loop(video_id)
             continue
 
         # (7) Clean analyzed videos
