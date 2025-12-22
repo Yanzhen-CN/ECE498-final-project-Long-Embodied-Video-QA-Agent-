@@ -122,11 +122,7 @@ def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
     lines.append("Task: produce a concise, faithful summary of what happens in this chunk. Do NOT guess.")
     lines.append(
         "Output MUST be valid JSON ONLY (no markdown, no extra text) with keys:\n"
-        "  chunk_id (int), t_start (int), t_end (int),\n"
-        "  summary (string),\n"
-        "  entities (list of strings),\n"
-        "  events (list of objects {\"verb\": str, \"obj\": str, \"detail\": str}),\n"
-        "  state_update (object)."
+        "summary,entities,events,state_update"
     )
     lines.append("Keep summary <= 4 sentences. events <= 6. entities <= 10.")
     lines.append("Return ONLY JSON.")
