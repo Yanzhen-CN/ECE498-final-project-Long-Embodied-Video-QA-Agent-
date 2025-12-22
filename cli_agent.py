@@ -78,6 +78,16 @@ def _preload_model_or_warn() -> None:
                 "       Populate model/hf_cache/ on a machine that can reach HuggingFace, then copy it here."
             )
 
+def text_only_inference_wrapper(prompt_text: str) -> str:
+    """
+    这个函数把评估系统的纯文本 prompt
+    转发给 model_interface 的文本模式 (image_paths=[])
+    """
+    return model_interface(
+        image_paths=[],  # 传空列表，触发 text-only 模式
+        prompt=prompt_text,
+        cfg=None         # 使用默认配置
+    )
 
 # -----------------------------
 # Menus
@@ -132,7 +142,7 @@ def answer_question(context: str, question: str) -> str:
 
     response = run_qa_system(
         mode="interactive",
-        model_inference_fn=model_inference_fn,
+        model_inference_fn=text_only_inference_wrapper,
         context=context,
         question=question
     )
