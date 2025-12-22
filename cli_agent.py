@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Optional
 
 from data.video_interface import VideoStore, list_uploaded_videos, clean_one_uploaded, clean_all_uploaded, clean_processed_video
-from memory.memory_interface import clean_saved_memory
+from memory.memory_interface import clean_saved_memory, memory_retrieval
 
 from agent.video_management import list_analysis_runs, check_analysis_runs, delete_analysis_run, clear_all_analysis_runs
 from agent.address_questions_evaluation import run_qa_system
@@ -400,6 +400,7 @@ def run_qa_loop(video_id: str) -> None:
             from memory.memory_interface import memory_retrieval
             context = memory_retrieve(video_id)
             '''
+            context = memory_retrieval(video_id)
             resp = answer_question(context, q)
             print("\n----- Agent Response -----")
             print(resp)
