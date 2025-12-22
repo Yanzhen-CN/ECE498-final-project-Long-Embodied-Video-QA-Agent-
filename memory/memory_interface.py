@@ -138,3 +138,65 @@ def clean_saved_memory(video_id: str = None, memory_root: str | Path = MEMORY_RO
 
     shutil.rmtree(target_dir)
     return True
+
+
+def memory_retrieval(video_id: str, memory_root: str = "memory/saved_videos") -> str:
+    """
+    Return a concatenated context string for all chunks of a given video_id.
+
+    Each chunk context format:
+        "From {t_start} to {t_end}. {summary}\n"
+
+    Storage layout:
+        {memory_root}/{video_id}/{t_start}-{t_end}.jsonl
+    """
+    if not video_id or not video_id.strip():
+        raise ValueError("video_id is required")
+
+    # Safety: forbid path traversal / nested paths
+    if Path(video_id).name != video_id or "/" in video_id or "\\" in video_id:
+        raise ValueError(f"Invalid video_id: {video_id}")
+
+    video_dir = Path(memory_root) / video_id
+    if not video_dir.exists() or not video_dir.is_dir():
+        return ""
+
+    def _parse_time_from_filename(p: Path) -> tuple[int, int]:
+        # Expect filename like '0570-0600.jsonl'
+        try:
+            a, b = p.stem.split("-")
+            return int(a), int(b)
+        except Exception:
+            # Put unparsable files at the end
+            return (10**12, 10**12)
+
+    chunk_files = sorted(video_dir.glob("*.jsonl"), key=_parse_time_from_filename)
+
+    lines: list[str] = []
+    for fp in chunk_files:
+        text = fp.read_text(encoding="utf-8").strip()
+        if not text:
+            continue
+
+        # each file should contain 1 json line; tolerate extra lines
+        first_line = next((ln for ln in text.splitlines() if ln.strip()), "")
+        if not first_line:
+            continue
+
+        try:
+            chunk = json.loads(first_line)
+        except json.JSONDecodeError:
+            continue
+
+        t_start = chunk.get("t_start")
+        t_end = chunk.get("t_end")
+        summary = chunk.get("summary", "")
+
+        # Ensure basic formatting even if fields are missing
+        t_start_str = str(t_start) if t_start is not None else ""
+        t_end_str = str(t_end) if t_end is not None else ""
+
+        # Exactly follow your required format
+        lines.append(f"From {t_start_str} to {t_end_str}: {summary}\n")
+
+    return "".join(lines)
