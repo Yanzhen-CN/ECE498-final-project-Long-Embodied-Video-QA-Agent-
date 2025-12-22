@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import time
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -129,6 +129,10 @@ def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
     return "\n".join(lines)
 
 
+
+import json
+import re
+
 def normalize_record(
     raw_text: str,
     chunk: ChunkSpec,
@@ -136,41 +140,43 @@ def normalize_record(
     evidence_per_chunk: int = 2,
     manifest_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    # 解析原始的字符串格式 JSON 数据
     try:
-        # 将 raw_text 字符串中的 JSON 解析为字典
-        js = json.loads(raw_text)
-        js["parse_error"] = False
+        # 尝试解析 raw_text
+        raw_json = json.loads(raw_text)
+        raw_json["parse_error"] = False
     except json.JSONDecodeError:
-        js = {"parse_error": True, "raw_model_output": raw_text}
+        # 如果 JSON 解析失败，尝试通过切割和正则提取关键信息
+        raw_json = slice_and_reconstruct(raw_text)
+        if raw_json is None:
+            raw_json = {"parse_error": True, "raw_model_output": raw_text}
 
-    # 如果 JSON 解析成功，开始组织结构
-    if not js.get("parse_error", True):
-        # 确保必要的字段存在
-        js.setdefault("summary", "")
-        js.setdefault("entities", [])
-        js.setdefault("events", [])
-        js.setdefault("state_update", {})
+    # 如果解析成功，开始处理
+    if not raw_json.get("parse_error", True):
+        # 确保每个字段都存在，使用默认值填充
+        raw_json.setdefault("summary", "")
+        raw_json.setdefault("entities", [])
+        raw_json.setdefault("events", [])
+        raw_json.setdefault("state_update", {})
 
-        # 你可以根据需要进一步处理 "events" 和 "state_update" 等字段，确保它们的结构正确
-        if isinstance(js["events"], list):
-            js["events"] = [{"verb": event.get("verb", ""), "obj": event.get("obj", ""), "detail": event.get("detail", "")} for event in js["events"]]
+        # 格式化 events 字段
+        if isinstance(raw_json["events"], list):
+            raw_json["events"] = [{"verb": event.get("verb", ""), "obj": event.get("obj", ""), "detail": event.get("detail", "")} for event in raw_json["events"]]
 
-        # 这里我们假设 `state_update` 是一个简单的字典，检查并补充必要字段
-        if isinstance(js["state_update"], dict):
-            js["state_update"].setdefault("holding", "")
-            js["state_update"].setdefault("red cup location", "")
+        # 格式化 state_update 字段
+        if isinstance(raw_json["state_update"], dict):
+            raw_json["state_update"].setdefault("holding", "")
+            raw_json["state_update"].setdefault("red cup location", "")
 
-    # 将模型生成的摘要信息保存到最终的 record 中
+    # 创建最终的 record 字典，返回标准格式
     record = {
         "video_id": chunk.video_id,
         "chunk_id": chunk.chunk_id,
         "t_start": chunk.t_start,
         "t_end": chunk.t_end,
-        "summary": js["summary"],
-        "entities": js["entities"],
-        "events": js["events"],
-        "state_update": js["state_update"],
+        "summary": raw_json["summary"],
+        "entities": raw_json["entities"],
+        "events": raw_json["events"],
+        "state_update": raw_json["state_update"],
         "evidence_frames": chunk.image_paths[:max(0, evidence_per_chunk)],
     }
 
@@ -178,6 +184,46 @@ def normalize_record(
         record["manifest_path"] = str(manifest_path)
 
     return record
+
+
+def slice_and_reconstruct(raw_text: str) -> Dict[str, Any]:
+    """
+    使用字符串切割和正则表达式提取关键信息并重构 JSON 数据。
+    """
+    # 尝试通过正则表达式提取字段（例如 summary, entities, events, state_update）
+    summary_pattern = r'"summary":\s*"([^"]+)"'
+    entities_pattern = r'"entities":\s*\[([^\]]+)\]'
+    events_pattern = r'"events":\s*\[([^\]]+)\]'
+    state_update_pattern = r'"state_update":\s*({[^}]+})'
+
+    summary = re.search(summary_pattern, raw_text)
+    entities = re.search(entities_pattern, raw_text)
+    events = re.search(events_pattern, raw_text)
+    state_update = re.search(state_update_pattern, raw_text)
+
+    # 处理提取的数据，避免 `None` 值
+    reconstructed = {
+        "summary": summary.group(1) if summary else "",  # 提取 summary，如果没有则为空字符串
+        "entities": [entity.strip() for entity in entities.group(1).split(",")] if entities else [],  # 提取并分割 entities
+        
+        # 检查 events 是否存在，存在时拆分处理
+        "events": [
+            {
+                "verb": event.split(":")[0].strip(),  # 提取 verb
+                "obj": event.split(":")[1].strip(),   # 提取 obj
+                "detail": event.split(":")[2].strip() if len(event.split(":")) > 2 else ""  # 提取 detail（如果存在）
+            }
+            for event in (events.group(1).split("},") if events else [])  # 分割事件并处理
+        ],
+        
+        # 提取并解析 state_update
+        "state_update": json.loads(state_update.group(1)) if state_update else {}  # 提取并解析 state_update
+    }
+
+
+
+    return reconstructed
+
 
 # =========================
 # Public API for CLI
