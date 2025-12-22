@@ -15,10 +15,5 @@
   "state_update": {
     "holding": "red cup",
     "red cup location": "in_hand"
-  },
-
-  "evidence_frames": [
-    "data/keyframes/v001/chunk_012/img_00.jpg",
-    "data/keyframes/v001/chunk_012/img_04.jpg"
-  ]
+  }
 }

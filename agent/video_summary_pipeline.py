@@ -140,33 +140,48 @@ def normalize_record(
     evidence_per_chunk: int = 2,
     manifest_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    js = extract_outer_json(raw_text)
+    # 解析原始的字符串格式 JSON 数据
+    try:
+        # 将 raw_text 字符串中的 JSON 解析为字典
+        js = json.loads(raw_text)
+        js["parse_error"] = False
+    except json.JSONDecodeError:
+        js = {"parse_error": True, "raw_model_output": raw_text}
 
-    if js is None:
-        rec: Dict[str, Any] = {"parse_error": True, "raw_model_output": raw_text}
-    else:
-        try:
-            rec = json.loads(js)
-            rec["parse_error"] = False
-        except Exception:
-            rec = {"parse_error": True, "raw_model_output": raw_text}
+    # 如果 JSON 解析成功，开始组织结构
+    if not js.get("parse_error", True):
+        # 确保必要的字段存在
+        js.setdefault("summary", "")
+        js.setdefault("entities", [])
+        js.setdefault("events", [])
+        js.setdefault("state_update", {})
 
-    rec["video_id"] = chunk.video_id
-    rec["chunk_id"] = chunk.chunk_id
-    rec["t_start"] = chunk.t_start
-    rec["t_end"] = chunk.t_end
+        # 你可以根据需要进一步处理 "events" 和 "state_update" 等字段，确保它们的结构正确
+        if isinstance(js["events"], list):
+            js["events"] = [{"verb": event.get("verb", ""), "obj": event.get("obj", ""), "detail": event.get("detail", "")} for event in js["events"]]
 
-    rec.setdefault("summary", "")
-    rec.setdefault("entities", [])
-    rec.setdefault("events", [])
-    rec.setdefault("state_update", {})
+        # 这里我们假设 `state_update` 是一个简单的字典，检查并补充必要字段
+        if isinstance(js["state_update"], dict):
+            js["state_update"].setdefault("holding", "")
+            js["state_update"].setdefault("red cup location", "")
 
-    rec["evidence_frames"] = chunk.image_paths[: max(0, evidence_per_chunk)]
+    # 将模型生成的摘要信息保存到最终的 record 中
+    record = {
+        "video_id": chunk.video_id,
+        "chunk_id": chunk.chunk_id,
+        "t_start": chunk.t_start,
+        "t_end": chunk.t_end,
+        "summary": js["summary"],
+        "entities": js["entities"],
+        "events": js["events"],
+        "state_update": js["state_update"],
+        "evidence_frames": chunk.image_paths[:max(0, evidence_per_chunk)],
+    }
 
     if manifest_path is not None:
-        rec["manifest_path"] = str(manifest_path)
+        record["manifest_path"] = str(manifest_path)
 
-    return rec
+    return record
 
 # =========================
 # Public API for CLI
@@ -224,7 +239,7 @@ def summarize_video_for_cli(
             evidence_per_chunk=evidence_per_chunk,
             manifest_path=manifest_path,
         )
-        store_path = Path(f"data/raw_response_{chunk.chunk_id}.json")
+        store_path = Path(f"data/temp/raw_response_{chunk.chunk_id}.json")
         Store = {"respond": raw_text}
         with open(store_path, 'w') as f:
             json.dump(Store, f, indent=4)
