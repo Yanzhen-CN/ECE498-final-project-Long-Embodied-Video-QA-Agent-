@@ -224,7 +224,10 @@ def summarize_video_for_cli(
             evidence_per_chunk=evidence_per_chunk,
             manifest_path=manifest_path,
         )
-        record = {"respond": raw_text}
+        store_path = Path(f"data/raw_response_{chunk.chunk_id}.json")
+        Store = {"respond": raw_text}
+        with open(store_path, 'w') as f:
+            json.dump(Store, f, indent=4)
         memory_ingest(record)
 
         s = (record.get("summary") or "").strip()
