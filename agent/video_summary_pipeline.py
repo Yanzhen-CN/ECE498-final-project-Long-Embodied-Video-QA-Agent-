@@ -114,9 +114,10 @@ def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
     time_str = f"{seconds_to_mmss(chunk.t_start)}–{seconds_to_mmss(chunk.t_end)}"
     lines: List[str] = []
     lines.append(f"Chunk info: chunk_id={chunk.chunk_id}, time_range={time_str}.")
-    lines.append(
-        f"Previous chunk summary (for continuity): {prev_summary.strip() if prev_summary.strip() else '(none)'}"
-    )
+    if prev_summary:
+        lines.append(
+            f"Previous chunk summary (for continuity): {prev_summary.strip() if prev_summary.strip() else '(none)'}"
+        )
     lines.append("You are given multiple keyframes from this video chunk in chronological order.")
     lines.append("Task: produce a concise, faithful summary of what happens in this chunk. Do NOT guess.")
     lines.append(
@@ -176,7 +177,7 @@ def summarize_video_for_cli(
     mode: str = "standard",
     local_files_only: bool = False,
     evidence_per_chunk: int = 2,
-    use_prev_summary: bool = True,
+    use_prev_summary: bool = False,
 ) -> str:
     mode_key = (mode or "standard").strip().lower()
     if mode_key not in MODES:
