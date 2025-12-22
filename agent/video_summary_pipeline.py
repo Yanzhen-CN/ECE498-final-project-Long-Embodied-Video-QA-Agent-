@@ -217,14 +217,14 @@ def summarize_video_for_cli(
 
 
         raw_text = model_interface(image_paths=chunk.image_paths, prompt=prompt, cfg=cfg.infer_cfg)
-        print(raw_text)
+        
         record = normalize_record(
             raw_text,
             chunk,
             evidence_per_chunk=evidence_per_chunk,
             manifest_path=manifest_path,
         )
-        print(record)
+        record = {"respond": raw_text}
         memory_ingest(record)
 
         s = (record.get("summary") or "").strip()
