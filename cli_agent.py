@@ -615,7 +615,7 @@ def main() -> None:
         if _is_exit(c):
             break
         if c == "1":
-            run_test_mode()
+            run_test_mode(store)
         elif c == "2":
             run_free_mode(store)
         else:
