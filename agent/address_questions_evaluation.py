@@ -167,7 +167,7 @@ def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, m
     }
 
 # =============================================================================
-# 2. 交互式问答逻辑 (新写的模式)
+# 2. 交互式问答逻辑
 # =============================================================================
 def _interactive_qa(context: str, question: str, model_inference_fn: Callable) -> str:
     """
