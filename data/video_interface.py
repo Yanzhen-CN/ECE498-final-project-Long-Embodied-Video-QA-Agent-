@@ -14,8 +14,8 @@ import cv2
 # Paths
 # -----------------------------
 DATA_ROOT = Path("data")
-PROCESSED_ROOT = DATA_ROOT / "processed_videos"
-VIDEOS_ROOT = DATA_ROOT / "videos"
+PROCESSED_ROOT = Path(DATA_ROOT / "processed_videos")
+VIDEOS_ROOT = Path(DATA_ROOT / "videos")
 
 
 def _ensure_dir(p: Path) -> None:
