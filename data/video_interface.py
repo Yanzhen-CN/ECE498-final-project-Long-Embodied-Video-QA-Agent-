@@ -205,7 +205,7 @@ def clean_processed_video(video_id: str | None = None, processed_root: str | Pat
 @dataclass
 class VideoStore:
     """Manage uploaded mp4 files under a directory (default: data/videos)."""
-    dir_path: Path = VIDEOS_ROOT
+    dir_path: Path = Path(VIDEOS_ROOT)
 
     def __post_init__(self) -> None:
         self.dir_path.mkdir(parents=True, exist_ok=True)
