@@ -130,9 +130,6 @@ def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
 
 
 
-import json
-import re
-
 def normalize_record(
     raw_text: str,
     chunk: ChunkSpec,
@@ -142,6 +139,14 @@ def normalize_record(
 ) -> Dict[str, Any]:
     # 尝试通过正则提取关键信息
     raw_json = slice_and_reconstruct(raw_text)
+    
+    # 如果 `raw_json` 是字符串格式的 JSON，则将其转换为字典
+    if isinstance(raw_json, str):
+        try:
+            raw_json = json.loads(raw_json)  # 转换为字典
+        except json.JSONDecodeError:
+            raw_json = {"parse_error": True, "raw_model_output": raw_text}
+
     if raw_json is None:
         raw_json = {"parse_error": True, "raw_model_output": raw_text}
 
@@ -150,7 +155,6 @@ def normalize_record(
     raw_json.setdefault("entities", [])
     raw_json.setdefault("events", [])
     raw_json.setdefault("state_update", {})
-
 
     # 格式化 state_update 字段
     if isinstance(raw_json["state_update"], dict):
@@ -176,11 +180,11 @@ def normalize_record(
     return record
 
 
+
 def slice_and_reconstruct(raw_text: str) -> Dict[str, Any]:
     """
     使用字符串切割和正则表达式提取关键信息并重构 JSON 数据。
     """
-    # 尝试通过正则表达式提取字段（例如 summary, entities, events, state_update）
     summary_pattern = r'"summary":\s*"([^"]+)"'
     entities_pattern = r'"entities":\s*\[([^\]]+)\]'
     events_pattern = r'"events":\s*\[([^\]]+)\]'
@@ -191,57 +195,14 @@ def slice_and_reconstruct(raw_text: str) -> Dict[str, Any]:
     events = re.search(events_pattern, raw_text)
     state_update = re.search(state_update_pattern, raw_text)
 
-    # 处理提取的数据，避免 `None` 值
     reconstructed = {
-        "summary": summary.group(1) if summary else "",  # 提取 summary，如果没有则为空字符串
-        "entities": [entity.strip() for entity in entities.group(1).split(",")] if entities else [],  # 提取并分割 entities
-        
-        # 提取并解析 state_update
-        "state_update": json.loads(state_update.group(1)) if state_update else {}  # 提取并解析 state_update
+        "summary": summary.group(1) if summary else "",
+        "entities": [entity.strip() for entity in entities.group(1).split(",")] if entities else [],
+        "events": [event.strip() for event in events.group(1).split(",")] if events else [],
+        "state_update": json.loads(state_update.group(1)) if state_update else {}
     }
 
     return reconstructed
-
-
-
-def slice_and_reconstruct(raw_text: str) -> Dict[str, Any]:
-    """
-    使用字符串切割和正则表达式提取关键信息并重构 JSON 数据。
-    """
-    # 尝试通过正则表达式提取字段（例如 summary, entities, events, state_update）
-    summary_pattern = r'"summary":\s*"([^"]+)"'
-    entities_pattern = r'"entities":\s*\[([^\]]+)\]'
-    events_pattern = r'"events":\s*\[([^\]]+)\]'
-    state_update_pattern = r'"state_update":\s*({[^}]+})'
-
-    summary = re.search(summary_pattern, raw_text)
-    entities = re.search(entities_pattern, raw_text)
-    events = re.search(events_pattern, raw_text)
-    state_update = re.search(state_update_pattern, raw_text)
-
-    # 处理提取的数据，避免 `None` 值
-    reconstructed = {
-        "summary": summary.group(1) if summary else "",  # 提取 summary，如果没有则为空字符串
-        "entities": [entity.strip() for entity in entities.group(1).split(",")] if entities else [],  # 提取并分割 entities
-        
-        # 检查 events 是否存在，存在时拆分处理
-        "events": [
-            {
-                "verb": event.split(":")[0].strip(),  # 提取 verb
-                "obj": event.split(":")[1].strip(),   # 提取 obj
-                "detail": event.split(":")[2].strip() if len(event.split(":")) > 2 else ""  # 提取 detail（如果存在）
-            }
-            for event in (events.group(1).split("},") if events else [])  # 分割事件并处理
-        ],
-        
-        # 提取并解析 state_update
-        "state_update": json.loads(state_update.group(1)) if state_update else {}  # 提取并解析 state_update
-    }
-
-
-
-    return reconstructed
-
 
 # =========================
 # Public API for CLI
