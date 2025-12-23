@@ -237,60 +237,10 @@ def _load_question_bank(json_path: str) -> list:
     except Exception as e:
         print(f"[ERR] Failed to load JSON: {e}")
         return []
-
-def _evaluate_context_accuracy(context: str, question_bank: list) -> float:
-    # a help function for test mode
-    """
-    针对生成的 Summary Context 跑一遍题库，计算准确率。
-    这里临时定义一个 Wrapper，因为 run_qa_system 的 evaluation 模式是针对 memory dict 的，
-    而这里我们只有 string context，所以我们模拟 Interactive 模式但自动判题。
-    """
     
-    # 定义一个适配器，把 Prompt 传给你的底层模型
-    def _text_inference_adapter(prompt_text):
-        return model_interface(image_paths=[], prompt=prompt_text, cfg=None)
-
-    correct_count = 0
-    total = len(question_bank)
-    
-    print(f"    -> Evaluating {total} questions against generated summary...")
-
-    for i, q_item in enumerate(question_bank):
-        # 构造一个专门用于“做选择题”的 Prompt
-        options_str = "\n".join([f"{k}. {v}" for k, v in q_item['options'].items()])
-        
-        prompt = f"""
-Video Summary:
-{context}
-
-Question: {q_item['question']}
-
-Options:
-{options_str}
-
-Instruction: Based on the Video Summary, select the correct option (A, B, C, or D). 
-Return ONLY the letter.
-"""
-        # 调用模型
-        response = _text_inference_adapter(prompt)
-        
-        # 简单的答案提取 (提取 A/B/C/D)
-        match = re.search(r'\b([A-D])\b', response.strip().upper())
-        pred = match.group(1) if match else "Unknown"
-        
-        ground_truth = q_item['ground_truth']
-        if pred == ground_truth:
-            correct_count += 1
-        
-        # 可选：打印每题详情
-        # print(f"       Q{i+1}: Pred={pred} | Truth={ground_truth} | {'✓' if pred==ground_truth else '✗'}")
-
-    return (correct_count / total) * 100 if total > 0 else 0.0
-
-
 def run_test_mode(store: VideoStore) -> None:
-    print("\n========== Test Mode: Fast vs Detailed Comparison ==========")
-    print("This mode runs the pipeline twice on the same video to compare speed and accuracy.")
+    print("\n========== Test Mode: Compare All Modes ==========")
+    print("Running pipeline on [Fast, Standard, Detailed] modes automatically.")
     
     # 1. 选择视频
     _print_uploaded(store)
@@ -302,11 +252,9 @@ def run_test_mode(store: VideoStore) -> None:
         print("[ERR] Video not found.")
         return
 
-    # 2. 输入题库路径 (Ground Truth)
-    # 你可以硬编码一个默认路径方便测试
+    # 2. 加载题库
     default_json = ROOT_DIR / "data" / "benchmarks" / "test_questions.json"
     json_input = _safe_input(f"Enter path to Question Bank JSON (Enter for default: {default_json.name}): ").strip()
-    
     json_path = json_input if json_input else str(default_json)
     question_bank = _load_question_bank(json_path)
     
@@ -314,14 +262,14 @@ def run_test_mode(store: VideoStore) -> None:
         print("[ERR] No questions loaded. Aborting test.")
         return
 
-    # 3. 开始对比测试
-    modes_to_test = ["fast", "detailed"]
+    # 3. 硬编码：直接测试三种模式
+    modes_to_test = ["fast", "standard", "detailed"]
     results = {}
 
-    print(f"\n[Test] Starting comparison on '{vid_name}'...")
+    print(f"\n[Test] Starting Full Benchmark on '{vid_name}'...")
 
     for mode in modes_to_test:
-        print(f"\n--- Running Mode: {mode.upper()} ---")
+        print(f"\n{'='*20} Running Mode: {mode.upper()} {'='*20}")
         
         # A. 计时 - 生成摘要
         t0 = time.time()
@@ -330,49 +278,62 @@ def run_test_mode(store: VideoStore) -> None:
         
         if not context:
             print(f"[ERR] Failed to generate summary for {mode}.")
-            results[mode] = {"time": 0, "len": 0, "acc": 0.0}
+            results[mode] = {"time": 0, "len": 0, "acc": 0.0, "summary": "N/A"}
             continue
 
         analysis_time = t1 - t0
         summary_len = len(context)
         
-        # B. 跑分 - 计算准确率
-        accuracy = _evaluate_context_accuracy(context, question_bank)
-        
+        # B. 跑分 + 生成总结
+        try:
+            qa_report = run_qa_system(
+                mode="evaluation",
+                model_inference_fn=text_only_inference_wrapper,
+                question_bank=question_bank,
+                context=context
+            )
+            
+            accuracy_val = qa_report.get("accuracy_val", 0.0)
+            accuracy_percent = accuracy_val * 100
+            
+            # 获取刚刚生成的总结
+            generated_summary = qa_report.get("generated_summary", "No summary generated.")
+
+        except Exception as e:
+            print(f"[ERR] Evaluation failed: {e}")
+            accuracy_percent = 0.0
+            generated_summary = "Error"
+
         results[mode] = {
             "time": analysis_time,
             "len": summary_len,
-            "acc": accuracy
+            "acc": accuracy_percent,
+            "summary": generated_summary
         }
-        print(f"--- Finished {mode.upper()}: Time={analysis_time:.1f}s | Acc={accuracy:.1f}% ---")
+        
+        print(f"--- Result ({mode.upper()}) ---")
+        print(f"Time: {analysis_time:.1f}s | Context Len: {summary_len} chars | Accuracy: {accuracy_percent:.1f}%")
+        print(f"Generated Summary: \n> {generated_summary}\n")
 
-    # 4. 输出对比表格
+    # 4. 输出最终对比表格
     print("\n\n==================== Final Comparison ====================")
-    header = f"| {'Mode':<10} | {'Time (s)':<10} | {'Sum Len (char)':<15} | {'Accuracy (%)':<12} |"
+    header = f"| {'Mode':<10} | {'Time (s)':<10} | {'Len (char)':<12} | {'Acc (%)':<10} |"
     print("-" * len(header))
     print(header)
     print("-" * len(header))
     
     for mode in modes_to_test:
-        res = results[mode]
-        row = f"| {mode.capitalize():<10} | {res['time']:<10.2f} | {res['len']:<15} | {res['acc']:<12.1f} |"
-        print(row)
+        if mode in results:
+            res = results[mode]
+            row = f"| {mode.capitalize():<10} | {res['time']:<10.2f} | {res['len']:<12} | {res['acc']:<10.1f} |"
+            print(row)
     print("-" * len(header))
     
-    # 简单的分析结论
-    fast = results["fast"]
-    detailed = results["detailed"]
-    
-    print("\nAnalysis:")
-    if detailed["acc"] > fast["acc"]:
-        gain = detailed["acc"] - fast["acc"]
-        cost = detailed["time"] - fast["time"]
-        print(f"* Detailed mode improved accuracy by +{gain:.1f}% but took {cost:.1f}s longer.")
-    else:
-        print("* Detailed mode did not improve accuracy in this test case.")
-    
-    print("==========================================================\n")
-    _safe_input("Press Enter to return to menu...")
+    # 5. (可选) 再次打印总结对比，方便一眼看完
+    print("\n--- Summary Comparison ---")
+    for mode in modes_to_test:
+        if mode in results:
+            print(f"[{mode.upper()}]: {results[mode]['summary']}")
 
 # function for free mode QA
 def run_qa_loop(video_id: str) -> None:
