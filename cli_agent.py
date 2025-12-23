@@ -505,7 +505,7 @@ def run_free_mode(store: VideoStore) -> None:
             if name == "0":
                 continue
 
-            clean_one_uploaded(store, name)
+            clean_one_uploaded(name)
             continue
 
         # (4) analyze a video
