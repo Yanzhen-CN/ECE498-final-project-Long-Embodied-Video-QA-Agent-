@@ -258,6 +258,7 @@ class VideoStore:
             name = Path(dst_name.strip()).name
             if not name.lower().endswith(".mp4"):
                 name += ".mp4"
+                print("add suffix")
             return self.dir_path / name
         return self.dir_path / src.name
 
@@ -282,8 +283,24 @@ class VideoStore:
             return True, f"Upload success{' (overwritten)' if overwrite else ''}: {dst.name}"
         except Exception as e:
             return False, f"Upload failed: {e}"
-
-
+    def delete_from_name(self, video_name: str) -> bool:
+        """Delete the specified video."""
+        video_path = self.dir_path / video_name
+        if video_path.exists() and video_path.is_file():
+            video_path.unlink()
+            print(f"[Clean] Deleted uploaded: {video_path.name}")
+            return True
+        print(f"[Clean] Video not found: {video_path.name}")
+        return False
+    def delete_all(self) -> int:
+        """Delete all mp4 videos in the directory."""
+        deleted_count = 0
+        for video_path in self.dir_path.glob("*.mp4"):
+            if video_path.exists() and video_path.is_file():
+                video_path.unlink()
+                deleted_count += 1
+                print(f"[Clean] Deleted uploaded: {video_path.name}")
+        return deleted_count
 def upload_video(
     src_path: str,
     *,
@@ -304,29 +321,17 @@ def list_uploaded_videos(videos_root: Path = VIDEOS_ROOT) -> List[str]:
 def clean_one_uploaded(video_name: str, videos_root: Path = VIDEOS_ROOT) -> bool:
     store = VideoStore(videos_root)
     name = (video_name or "").strip()
+
     if not name:
         return False
+
     if not name.lower().endswith(".mp4"):
         name += ".mp4"
 
-    p = store.dir_path / name
-    if not p.exists():
-        print(f"[Clean] Not found: {p}")
-        return False
-
-    p.unlink()
-    print(f"[Clean] Deleted uploaded: {p.name}")
-    return True
-
+    return store.delete(name)
 
 def clean_all_uploaded(videos_root: Path = VIDEOS_ROOT) -> int:
     store = VideoStore(videos_root)
-    cnt = 0
-    for p in store.dir_path.glob("*.mp4"):
-        try:
-            p.unlink()
-            cnt += 1
-        except Exception:
-            pass
-    print(f"[Clean] Deleted {cnt} uploaded videos under: {store.dir_path}")
-    return cnt
+    deleted_count = store.delete_all()  # Call the delete_all method
+    print(f"[Clean] Deleted {deleted_count} uploaded videos under: {store.dir_path}")
+    return deleted_count
