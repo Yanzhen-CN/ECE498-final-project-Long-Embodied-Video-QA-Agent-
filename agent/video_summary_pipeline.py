@@ -140,15 +140,15 @@ def normalize_record(
     evidence_per_chunk: int = 2,
     manifest_path: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    try:
-        # 尝试解析 raw_text
-        raw_json = json.loads(raw_text)
-        raw_json["parse_error"] = False
-    except json.JSONDecodeError:
-        # 如果 JSON 解析失败，尝试通过切割和正则提取关键信息
-        raw_json = slice_and_reconstruct(raw_text)
-        if raw_json is None:
-            raw_json = {"parse_error": True, "raw_model_output": raw_text}
+    '''    try:
+            # 尝试解析 raw_text
+            raw_json = json.loads(raw_text)
+            raw_json["parse_error"] = False
+        except json.JSONDecodeError:
+            # 如果 JSON 解析失败，尝试通过切割和正则提取关键信息'''
+    raw_json = slice_and_reconstruct(raw_text)
+    if raw_json is None:
+        raw_json = {"parse_error": True, "raw_model_output": raw_text}
 
     # 如果解析成功，开始处理
     if not raw_json.get("parse_error", True):
