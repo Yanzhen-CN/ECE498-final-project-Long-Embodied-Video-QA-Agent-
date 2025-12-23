@@ -383,7 +383,7 @@ def run_qa_loop(video_id: str) -> None:
         if c == "0":
             return
         if c == "1":
-            q = _safe_input("Enter your question (-1 to exit): ").strip()
+            q = _safe_input("Enter your question (0 back, -1 exit): ").strip()
             if _is_exit(q):
                 raise SystemExit(0)
             # TODO: implement a function to get the context from the video_id
