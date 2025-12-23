@@ -320,6 +320,7 @@ def list_uploaded_videos(videos_root: Path = VIDEOS_ROOT) -> List[str]:
 
 def clean_one_uploaded(video_name: str, videos_root: Path = VIDEOS_ROOT) -> bool:
     store = VideoStore(videos_root)
+    print(f"cleaning{video_name}")
     name = (video_name or "").strip()
 
     if not name:
