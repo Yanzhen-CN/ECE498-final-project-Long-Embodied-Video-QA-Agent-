@@ -1,19 +1,18 @@
 {
-  "video_id": "v001",
+  "video_id": "v001__standard",
   "chunk_id": 12,
   "t_start": 330,
   "t_end": 360,
 
-  "summary": "A person walks to the table and picks up a red cup.",
-  "entities": ["person", "red cup", "table"],
+  "summary": "The video showcases a virtual room setup, starting with a view of a green sofa and a red cushion. The camera pans to reveal a window, a door, and a box on the floor. The scene then shifts to show a red chair and a different angle of the room, including a desk with a laptop.",
+  "entities": ["green sofa", "red cushion", "window", "door", "box", "red chair", "desk", "laptop"],
 
   "events": [
-    {"verb": "walk_to", "obj": "table", "detail": ""},
-    {"verb": "pick_up", "obj": "red cup", "detail": "from table"}
+    {"verb": "shifts to", "obj": "different angle of room", "detail": "desk with a laptop"}
   ],
 
   "state_update": {
-    "holding": "red cup",
-    "red cup location": "in_hand"
+    "viewing": "green sofa",
+    "red cup location": "red cushion"
   }
 }
