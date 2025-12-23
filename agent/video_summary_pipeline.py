@@ -122,7 +122,7 @@ def build_prompt(chunk: ChunkSpec, prev_summary: str) -> str:
     lines.append("Task: produce a concise, faithful summary of what happens in this chunk. Do NOT guess.")
     lines.append(
         "Output MUST be valid JSON ONLY (no markdown, no extra text) with keys:\n"
-        "summary,entities,events,state_update"
+        "summary,entities,state_update"
     )
     lines.append("Keep summary <= 4 sentences. events <= 6. entities <= 10.")
     lines.append("Return ONLY JSON.")
@@ -151,16 +151,6 @@ def normalize_record(
     raw_json.setdefault("events", [])
     raw_json.setdefault("state_update", {})
 
-    # 格式化 events 字段，防止访问越界
-    if isinstance(raw_json["events"], list):
-        raw_json["events"] = [
-            {
-                "verb": event.split(":")[0].strip() if len(event.split(":")) > 0 else "",  # 提取 verb
-                "obj": event.split(":")[1].strip() if len(event.split(":")) > 1 else "",   # 提取 obj
-                "detail": event.split(":")[2].strip() if len(event.split(":")) > 2 else ""  # 提取 detail（如果存在）
-            }
-            for event in raw_json["events"]
-        ]
 
     # 格式化 state_update 字段
     if isinstance(raw_json["state_update"], dict):
@@ -205,16 +195,6 @@ def slice_and_reconstruct(raw_text: str) -> Dict[str, Any]:
     reconstructed = {
         "summary": summary.group(1) if summary else "",  # 提取 summary，如果没有则为空字符串
         "entities": [entity.strip() for entity in entities.group(1).split(",")] if entities else [],  # 提取并分割 entities
-        
-        # 检查 events 是否存在，存在时拆分处理
-        "events": [
-            {
-                "verb": event.split(":")[0].strip() if len(event.split(":")) > 0 else "",  # 提取 verb
-                "obj": event.split(":")[1].strip() if len(event.split(":")) > 1 else "",   # 提取 obj
-                "detail": event.split(":")[2].strip() if len(event.split(":")) > 2 else ""  # 提取 detail（如果存在）
-            }
-            for event in (events.group(1).split("},") if events else [])  # 分割事件并处理
-        ],
         
         # 提取并解析 state_update
         "state_update": json.loads(state_update.group(1)) if state_update else {}  # 提取并解析 state_update
