@@ -1,0 +1,446 @@
+[
+  {
+    "id": 1,
+    "question": "Does a green sofa appear in the video?",
+    "options": {
+      "A": "Yes, it appears",
+      "B": "No, it does not appear",
+      "C": "It appears only once",
+      "D": "It appears only at the end"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 2,
+    "question": "Is a red chair added in the video?",
+    "options": {
+      "A": "Yes, it is added",
+      "B": "No, it is not added",
+      "C": "The chair is blue",
+      "D": "The chair is removed"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 3,
+    "question": "Where is the box placed?",
+    "options": {
+      "A": "On the coffee table",
+      "B": "On the floor",
+      "C": "On the green sofa",
+      "D": "On the TV stand"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 4,
+    "question": "Is there a remote control on the coffee table?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "It is removed later",
+      "D": "It is on the floor"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 5,
+    "question": "Does a trash can appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only at the end",
+      "D": "Only off-screen"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 6,
+    "question": "Where is the white tissue placed?",
+    "options": {
+      "A": "On the table",
+      "B": "On the floor near the trash can",
+      "C": "On the sofa",
+      "D": "Inside the drawer"
+    },
+    "ground_truth": "B"
+  },
+  {
+    "id": 7,
+    "question": "What happens to the coffee table in the video?",
+    "options": {
+      "A": "It is moved closer to the sofa",
+      "B": "It is removed from the room",
+      "C": "It is rotated",
+      "D": "It is moved near the window"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 8,
+    "question": "Does a television appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only in the last frame",
+      "D": "Only mentioned but not shown"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 9,
+    "question": "Where is the laptop initially placed?",
+    "options": {
+      "A": "On a black table",
+      "B": "On the green and gray sofa",
+      "C": "On the floor",
+      "D": "On the TV stand"
+    },
+    "ground_truth": "B"
+  },
+  {
+    "id": 10,
+    "question": "Is there any interaction with the laptop?",
+    "options": {
+      "A": "Yes, it is slightly moved",
+      "B": "No interaction occurs",
+      "C": "It is turned off",
+      "D": "It is removed"
+    },
+    "ground_truth": "A"
+  },
+
+  {
+    "id": 11,
+    "question": "What happens to the drawer in the video?",
+    "options": {
+      "A": "It is opened and then closed",
+      "B": "It remains open",
+      "C": "It is removed",
+      "D": "It does not appear"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 12,
+    "question": "Does a floor lamp appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only briefly",
+      "D": "It is removed"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 13,
+    "question": "What type of floor does the room have?",
+    "options": {
+      "A": "Wooden floor",
+      "B": "Carpet",
+      "C": "Tile floor",
+      "D": "Concrete floor"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 14,
+    "question": "Does a blue rug appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only at the beginning",
+      "D": "Only at the end"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 15,
+    "question": "Is a fireplace shown in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only partially visible",
+      "D": "Only mentioned"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 16,
+    "question": "What happens to the black table?",
+    "options": {
+      "A": "It is moved and rotated",
+      "B": "It is removed",
+      "C": "It is placed on the sofa",
+      "D": "Nothing happens"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 17,
+    "question": "Does a glass table appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only once",
+      "D": "Only in the background"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 18,
+    "question": "What happens to the glass table?",
+    "options": {
+      "A": "Its position is adjusted",
+      "B": "It is removed",
+      "C": "It is knocked over",
+      "D": "Nothing happens"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 19,
+    "question": "Do plants appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only one plant appears",
+      "D": "Only in the background"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 20,
+    "question": "What is the television placed on?",
+    "options": {
+      "A": "A wooden TV stand",
+      "B": "The floor",
+      "C": "A glass table",
+      "D": "A black coffee table"
+    },
+    "ground_truth": "A"
+  },
+
+  {
+    "id": 21,
+    "question": "Does a black bench appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "It is removed",
+      "D": "Only at the beginning"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 22,
+    "question": "Is the green sofa placed multiple times?",
+    "options": {
+      "A": "Yes",
+      "B": "Only once",
+      "C": "Not placed at all",
+      "D": "Removed and then placed again"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 23,
+    "question": "Does a yellow balloon appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only at the end",
+      "D": "Only in the background"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 24,
+    "question": "Does a watering can appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "It is removed",
+      "D": "Only mentioned"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 25,
+    "question": "Does a framed picture appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only once",
+      "D": "It is blocked"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 26,
+    "question": "Is a window shown in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only in the last frame",
+      "D": "Only in distant view"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 27,
+    "question": "Does a blue and yellow object appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "Only blue appears",
+      "D": "Only yellow appears"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 28,
+    "question": "Is the trash can repositioned in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "It is removed",
+      "D": "It is hidden"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 29,
+    "question": "Does a black side table appear in the video?",
+    "options": {
+      "A": "Yes",
+      "B": "No",
+      "C": "It is removed",
+      "D": "Only once"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 30,
+    "question": "What is the main focus of the video?",
+    "options": {
+      "A": "Room layout and furniture arrangement",
+      "B": "Human conversation",
+      "C": "Outdoor activities",
+      "D": "Cooking process"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 31,
+    "question": "What color is the cushion mentioned in the video?",
+    "options": {
+      "A": "Green",
+      "B": "Blue",
+      "C": "Red",
+      "D": "White"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 32,
+    "question": "What color is the coffee table shown in the video?",
+    "options": {
+      "A": "Brown",
+      "B": "Black",
+      "C": "White",
+      "D": "Gray"
+    },
+    "ground_truth": "B"
+  },
+  {
+    "id": 33,
+    "question": "What color is the trash can that appears in the room?",
+    "options": {
+      "A": "White",
+      "B": "Silver",
+      "C": "Black",
+      "D": "Green"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 34,
+    "question": "What color is the cabinet mentioned in the video?",
+    "options": {
+      "A": "Brown",
+      "B": "Red",
+      "C": "Black",
+      "D": "White"
+    },
+    "ground_truth": "B"
+  },
+  {
+    "id": 35,
+    "question": "What color is the TV stand shown in the video?",
+    "options": {
+      "A": "White",
+      "B": "Brown",
+      "C": "Black",
+      "D": "Gray"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 36,
+    "question": "Which color best describes the rug in the room?",
+    "options": {
+      "A": "Green",
+      "B": "Red",
+      "C": "Blue",
+      "D": "Yellow"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 37,
+    "question": "What color is the balloon that appears in the video?",
+    "options": {
+      "A": "Red",
+      "B": "Blue",
+      "C": "Green",
+      "D": "Yellow"
+    },
+    "ground_truth": "D"
+  },
+  {
+    "id": 38,
+    "question": "What color are the legs of one of the green couches?",
+    "options": {
+      "A": "Black",
+      "B": "White",
+      "C": "Brown",
+      "D": "Gray"
+    },
+    "ground_truth": "C"
+  },
+  {
+    "id": 39,
+    "question": "What color is the floor lamp shown in the video?",
+    "options": {
+      "A": "Black",
+      "B": "Silver",
+      "C": "White",
+      "D": "Gold"
+    },
+    "ground_truth": "A"
+  },
+  {
+    "id": 40,
+    "question": "What color is the table that is moved and rotated during the video?",
+    "options": {
+      "A": "Brown",
+      "B": "Black",
+      "C": "White",
+      "D": "Transparent"
+    },
+    "ground_truth": "B"
+  }
+]
+
+
