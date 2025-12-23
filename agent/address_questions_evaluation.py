@@ -3,14 +3,13 @@ import re
 from typing import List, Dict, Any, Callable, Optional
 
 # =============================================================================
-# 1. 核心评估逻辑 (保持你原有的逻辑，稍作封装)
+# 1. 核心评估逻辑
 # =============================================================================
-def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, model_inference_fn: Callable) -> Dict:
-    """
+"""
     批量评估模式：遍历题库，计算准确率。
     输入:
         question_bank: 题库
-        retrieved_memories_map：所用到的memory
+        context: 视频的完整 Summary 文本 (str)
         model_inference_fn：模型调用函数
     输出：
         一个json文件，包含每题的预测结果和总准确率
@@ -42,55 +41,16 @@ def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, m
                     "ground_truth": "B"
                 }
             ]
-            
-        ===============================================================================
-        retrieved_memories_map (dict): 检索到的Memory，结构如下
-        ===============================================================================
-            {
-                "1": [  # question id
-                    {
-                        "chunk_id": 10,
-                        "summary": "The person picked up a red cup from the table.",
-                        "objects": ["red cup", "table"],
-                        "time_range": "00:05-00:10"
-                    },
-                    {
-                        "chunk_id": 15,
-                        "summary": "The person walked to the kitchen area.",
-                        "objects": ["person", "kitchen"],
-                        "time_range": "00:15-00:20"
-                    },
-                    {
-                        "chunk_id": 22,
-                        "summary": "The person placed the cup on the counter.",
-                        "objects": ["cup", "counter"],
-                        "time_range": "00:25-00:30"
-                    }
-                ],
-                "2": [
-                    {
-                        "chunk_id": 30,
-                        "summary": "The robot approached the kitchen door.",
-                        "objects": ["robot", "kitchen door"],
-                        "time_range": "01:00-01:05"
-                    },
-                    {
-                        "chunk_id": 35,
-                        "summary": "The robot entered the living room instead.",
-                        "objects": ["robot", "living room"],
-                        "time_range": "01:10-01:15"
-                    },
-                    {
-                        "chunk_id": 40,
-                        "summary": "The robot did not go into the kitchen.",
-                        "objects": ["robot", "kitchen"],
-                        "time_range": "01:20-01:25"
-                    }
-                ]
+        context (str): 视频的完整 Summary 文本 (str)
         model_inference_fn (function): 一个回调函数，接受 prompt 字符串，返回模型生成的文本。
 
     Returns:
-        dict: 包含总准确率、正确数量以及详细的每题评估结果。
+        dict: 一个包含每题的预测结果和总准确率的字典。
+    """
+def evaluate_video_qa(question_bank: List[Dict], context: str, model_inference_fn: Callable) -> Dict:
+    """
+    批量评估模式：遍历题库，基于给定的视频 Summary Context 计算准确率。
+    最后额外增加一道“总结题”。
     """
     results = []
     correct_count = 0
@@ -98,28 +58,18 @@ def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, m
 
     print(f"Starting BATCH EVALUATION for {total_questions} questions...")
 
+    # 1. 遍历客观题 (选择题)
     for q_item in question_bank:
         q_id = str(q_item['id'])
         question_text = q_item['question']
         options = q_item['options']
         ground_truth = q_item['ground_truth']
         
-        # 获取 Memory
-        memories = retrieved_memories_map.get(q_id, [])
-        
-        # 构建 Context 字符串
-        context_str = ""
-        for i, mem in enumerate(memories):
-            context_str += f"[Segment {i+1} | Time: {mem.get('time_range', 'Unknown')}]\n"
-            context_str += f"Summary: {mem.get('summary', '')}\n"
-            context_str += f"Key Objects: {', '.join(mem.get('objects', []))}\n\n"
-
-        # 构建 Prompt (针对选择题)
         prompt = f"""
         You are an intelligent video assistant.
         
-        === Video Memories ===
-        {context_str}
+        === Video Summary ===
+        {context}
         
         === Question ===
         {question_text}
@@ -130,20 +80,17 @@ def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, m
         C. {options['C']}
         D. {options['D']}
         
-        Based on the video memories provided, choose the correct option.
+        Based on the video summary provided, choose the correct option.
         Your output must contain ONLY the option letter (A, B, C, or D).
         
         Answer:
         """
 
-        # 调用模型
         raw_output = model_inference_fn(prompt)
         
-        # 提取答案
         pred_match = re.search(r'\b([A-D])\b', raw_output.strip().upper())
         prediction = pred_match.group(1) if pred_match else "Unknown"
 
-        # 统计
         is_correct = (prediction == ground_truth)
         if is_correct:
             correct_count += 1
@@ -155,15 +102,31 @@ def evaluate_video_qa(question_bank: List[Dict], retrieved_memories_map: Dict, m
             "is_correct": is_correct,
             "raw_model_output": raw_output
         })
-        
         print(f"Q{q_id}: Pred={prediction}, Truth={ground_truth} -> {'✅' if is_correct else '❌'}")
 
     accuracy = correct_count / total_questions if total_questions > 0 else 0
+    
+    # 2. [新增] 额外生成一段视频总结
+    print("Generating final summary evaluation...")
+    summary_prompt = f"""
+    You are a helpful assistant. 
+    Based ONLY on the following video context, provide a concise summary of the video's main events.
+    
+    === Video Context ===
+    {context}
+    
+    === Task ===
+    Summarize the video content in 2-3 sentences.
+    """
+    final_summary = model_inference_fn(summary_prompt).strip()
+    
     return {
         "mode": "evaluation",
         "total_questions": total_questions,
-        "accuracy": f"{accuracy:.2%}",
-        "details": results
+        "accuracy_str": f"{accuracy:.2%}",
+        "accuracy_val": accuracy,
+        "details": results,
+        "generated_summary": final_summary  # <--- 将总结结果返回
     }
 
 # =============================================================================
@@ -203,22 +166,7 @@ def run_qa_system(
     model_inference_fn: Callable, 
     **kwargs
 ) -> Any:
-    """
-    统一 QA 系统入口。
-    
-    Args:
-        mode (str): "interactive" 或 "evaluation"
-        model_inference_fn (func): 模型调用回调函数
-        **kwargs: 根据模式传递不同的参数
-            - mode="interactive": 需要 'context' (str), 'question' (str)
-            - mode="evaluation": 需要 'question_bank' (list), 'retrieved_memories_map' (dict)
-            
-    Returns:
-        String (回答) 或 Dict (评测报告)
-    """
-    
     if mode == "interactive":
-        # 检查参数
         if "context" not in kwargs or "question" not in kwargs:
             raise ValueError("Interactive mode requires 'context' and 'question' in kwargs.")
             
@@ -230,14 +178,14 @@ def run_qa_system(
         )
 
     elif mode == "evaluation":
-        # 检查参数
-        if "question_bank" not in kwargs or "retrieved_memories_map" not in kwargs:
-            raise ValueError("Evaluation mode requires 'question_bank' and 'retrieved_memories_map'.")
+        # 修改：检查 context 而不是 retrieved_memories_map
+        if "question_bank" not in kwargs or "context" not in kwargs:
+            raise ValueError("Evaluation mode requires 'question_bank' and 'context'.")
             
         print("\n[System] Running Batch Evaluation Mode...")
         return evaluate_video_qa(
             question_bank=kwargs["question_bank"],
-            retrieved_memories_map=kwargs["retrieved_memories_map"],
+            context=kwargs["context"],  # 传入 String
             model_inference_fn=model_inference_fn
         )
     
