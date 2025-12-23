@@ -234,6 +234,7 @@ class VideoStore:
         # If user typed without suffix, append ".mp4"
         # NOTE: do NOT use endswith on the raw string when it has trailing spaces
         if not s.lower().endswith(".mp4"):
+            print("add suffix")
             s = s + ".mp4"
 
         p = Path(s).expanduser()
